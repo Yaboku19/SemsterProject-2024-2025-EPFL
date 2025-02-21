@@ -1,0 +1,111 @@
+0000000000001540 <simd_sum>:
+    1540:       f3 0f 1e fa             endbr64 
+    1544:       55                      push   %rbp
+    1545:       c5 f9 ef c0             vpxor  %xmm0,%xmm0,%xmm0
+    1549:       48 89 e5                mov    %rsp,%rbp
+    154c:       41 57                   push   %r15
+    154e:       41 56                   push   %r14
+    1550:       41 55                   push   %r13
+    1552:       41 54                   push   %r12
+    1554:       53                      push   %rbx
+    1555:       48 83 e4 e0             and    $0xffffffffffffffe0,%rsp
+    1559:       48 83 ec 60             sub    $0x60,%rsp
+    155d:       64 48 8b 04 25 28 00    mov    %fs:0x28,%rax
+    1564:       00 00 
+    1566:       48 89 44 24 58          mov    %rax,0x58(%rsp)
+    156b:       31 c0                   xor    %eax,%eax
+    156d:       c5 fd 7f 04 24          vmovdqa %ymm0,(%rsp)
+    1572:       85 f6                   test   %esi,%esi
+    1574:       0f 8e 2c 01 00 00       jle    16a6 <simd_sum+0x166>
+    157a:       8d 46 ff                lea    -0x1(%rsi),%eax
+    157d:       45 31 e4                xor    %r12d,%r12d
+    1580:       31 db                   xor    %ebx,%ebx
+    1582:       49 89 e5                mov    %rsp,%r13
+    1585:       c1 e8 02                shr    $0x2,%eax
+    1588:       48 8d 4c 24 30          lea    0x30(%rsp),%rcx
+    158d:       48 c1 e0 05             shl    $0x5,%rax
+    1591:       48 8d 74 07 20          lea    0x20(%rdi,%rax,1),%rsi
+    1596:       66 2e 0f 1f 84 00 00    cs nopw 0x0(%rax,%rax,1)
+    159d:       00 00 00 
+    15a0:       48 8b 44 24 08          mov    0x8(%rsp),%rax
+    15a5:       c5 fd d4 07             vpaddq (%rdi),%ymm0,%ymm0
+    15a9:       4c 89 64 24 30          mov    %r12,0x30(%rsp)
+    15ae:       4c 89 ea                mov    %r13,%rdx
+    15b1:       48 89 44 24 38          mov    %rax,0x38(%rsp)
+    15b6:       48 8b 44 24 10          mov    0x10(%rsp),%rax
+    15bb:       48 89 44 24 40          mov    %rax,0x40(%rsp)
+    15c0:       48 8b 44 24 18          mov    0x18(%rsp),%rax
+    15c5:       c5 fd 7f 04 24          vmovdqa %ymm0,(%rsp)
+    15ca:       48 89 44 24 48          mov    %rax,0x48(%rsp)
+    15cf:       31 c0                   xor    %eax,%eax
+    15d1:       4c 8b 02                mov    (%rdx),%r8
+    15d4:       4c 39 04 c1             cmp    %r8,(%rcx,%rax,8)
+    15d8:       76 0f                   jbe    15e9 <simd_sum+0xa9>
+    15da:       48 83 c3 01             add    $0x1,%rbx
+    15de:       48 83 f8 03             cmp    $0x3,%rax
+    15e2:       74 13                   je     15f7 <simd_sum+0xb7>
+    15e4:       48 83 6a 08 01          subq   $0x1,0x8(%rdx)
+    15e9:       48 83 c0 01             add    $0x1,%rax
+    15ed:       48 83 c2 08             add    $0x8,%rdx
+    15f1:       48 83 f8 04             cmp    $0x4,%rax
+    15f5:       75 da                   jne    15d1 <simd_sum+0x91>
+    15f7:       48 83 c7 20             add    $0x20,%rdi
+    15fb:       4c 8b 24 24             mov    (%rsp),%r12
+    15ff:       48 39 f7                cmp    %rsi,%rdi
+    1602:       75 9c                   jne    15a0 <simd_sum+0x60>
+    1604:       4c 89 e1                mov    %r12,%rcx
+    1607:       45 31 f6                xor    %r14d,%r14d
+    160a:       4c 8d 3d f3 09 00 00    lea    0x9f3(%rip),%r15        # 2004 <_IO_stdin_used+0x4>
+    1611:       c5 f8 77                vzeroupper 
+    1614:       44 89 f2                mov    %r14d,%edx
+    1617:       4c 89 fe                mov    %r15,%rsi
+    161a:       bf 01 00 00 00          mov    $0x1,%edi
+    161f:       31 c0                   xor    %eax,%eax
+    1621:       e8 ca fb ff ff          call   11f0 <__printf_chk@plt>
+    1626:       49 83 c6 01             add    $0x1,%r14
+    162a:       49 83 fe 04             cmp    $0x4,%r14
+    162e:       74 10                   je     1640 <simd_sum+0x100>
+    1630:       4b 8b 4c f5 00          mov    0x0(%r13,%r14,8),%rcx
+    1635:       eb dd                   jmp    1614 <simd_sum+0xd4>
+    1637:       66 0f 1f 84 00 00 00    nopw   0x0(%rax,%rax,1)
+    163e:       00 00 
+    1640:       4c 89 e8                mov    %r13,%rax
+    1643:       48 8d 4c 24 18          lea    0x18(%rsp),%rcx
+    1648:       45 31 ed                xor    %r13d,%r13d
+    164b:       48 39 c8                cmp    %rcx,%rax
+    164e:       74 1a                   je     166a <simd_sum+0x12a>
+    1650:       31 d2                   xor    %edx,%edx
+    1652:       4c 03 60 08             add    0x8(%rax),%r12
+    1656:       0f 92 c2                setb   %dl
+    1659:       48 83 fa 01             cmp    $0x1,%rdx
+    165d:       49 83 dd ff             sbb    $0xffffffffffffffff,%r13
+    1661:       48 83 c0 08             add    $0x8,%rax
+    1665:       48 39 c8                cmp    %rcx,%rax
+    1668:       75 e6                   jne    1650 <simd_sum+0x110>
+    166a:       48 89 da                mov    %rbx,%rdx
+    166d:       48 8d 35 a1 09 00 00    lea    0x9a1(%rip),%rsi        # 2015 <_IO_stdin_used+0x15>
+    1674:       bf 01 00 00 00          mov    $0x1,%edi
+    1679:       31 c0                   xor    %eax,%eax
+    167b:       e8 70 fb ff ff          call   11f0 <__printf_chk@plt>
+    1680:       4a 8d 14 2b             lea    (%rbx,%r13,1),%rdx
+    1684:       48 8b 44 24 58          mov    0x58(%rsp),%rax
+    1689:       64 48 2b 04 25 28 00    sub    %fs:0x28,%rax
+    1690:       00 00 
+    1692:       75 1f                   jne    16b3 <simd_sum+0x173>
+    1694:       48 8d 65 d8             lea    -0x28(%rbp),%rsp
+    1698:       4c 89 e0                mov    %r12,%rax
+    169b:       5b                      pop    %rbx
+    169c:       41 5c                   pop    %r12
+    169e:       41 5d                   pop    %r13
+    16a0:       41 5e                   pop    %r14
+    16a2:       41 5f                   pop    %r15
+    16a4:       5d                      pop    %rbp
+    16a5:       c3                      ret    
+    16a6:       45 31 e4                xor    %r12d,%r12d
+    16a9:       31 db                   xor    %ebx,%ebx
+    16ab:       49 89 e5                mov    %rsp,%r13
+    16ae:       e9 51 ff ff ff          jmp    1604 <simd_sum+0xc4>
+    16b3:       e8 c8 fa ff ff          call   1180 <__stack_chk_fail@plt>
+    16b8:       0f 1f 84 00 00 00 00    nopl   0x0(%rax,%rax,1)
+    16bf:       00 
+
