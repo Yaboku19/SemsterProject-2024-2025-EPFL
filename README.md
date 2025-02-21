@@ -1,2 +1,2 @@
 ## Compilation
-gcc -g -o sumOfBigNumber sumOfBigNumber.c -mavx2 -O2 -lgmp
+gcc -g -o sumOfBigNumber.o sumOfBigNumber.c -mavx2 -O2 -lgmp
