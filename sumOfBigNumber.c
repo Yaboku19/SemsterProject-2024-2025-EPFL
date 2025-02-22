@@ -6,6 +6,7 @@
 #include <time.h>
 #include <stdint.h>
 #include <gmp.h>
+#include <string.h>
 
 typedef struct {
     uint64_t low;
@@ -54,91 +55,49 @@ void traditional_sum(uint384_t* a,uint384_t* b, uint384_t* c, int length) {
     }
 }
 
-uint128_t simd_sum(uint64_t* num, int length) {
-    __m256i sum = _mm256_setzero_si256();
-    uint128_t result = {0, 0};
-    uint64_t overflow_count = 0;
-    uint64_t oldSum[4];
-
-    for (int i = 0; i < length; i += 4) {
-        __m256i data = _mm256_loadu_si256((__m256i*)(num + i));
-        for (int j = 0; j < 4; j++) {
-            oldSum[j] = ((uint64_t*)&sum)[j];
-        }
-        sum = _mm256_add_epi64(sum, data);
-
-        for (int j = 0; j < 4; j++) {
-            uint64_t old_val = oldSum[j];
-            uint64_t new_val = ((uint64_t*)&sum)[j];
-            if (new_val >= old_val) {
-                continue;
-            }
-            overflow_count++;
-            if (j < 3) {
-                ((uint64_t*)&sum)[j + 1] -= 1;
-            }
-
-        }
-    }
-    printf("over: %lu\n", overflow_count);
-    uint64_t carry = 0;
-    for (int j = 0; j < 4; j++) {
-        uint64_t temp = result.low + ((uint64_t*)&sum)[j];
-        if (temp < result.low) {
-            carry++;
-        }
-        result.low = temp;
-    }
-    result.high = overflow_count + carry;
-    return result;
-}
-
-uint128_t simd_sum_v2(uint64_t* num, int length) {
-    uint64_t result_array[4] = {0, 0, 0, 0};
-    uint128_t result;
-    uint64_t overflow_count = 0;
-    uint64_t *oldSum = malloc(4 * sizeof(uint64_t));
-    uint64_t *currentSum = malloc(4 * sizeof(uint64_t));
-    const char *fmt = "valore: %lu\n";
-    if(oldSum == NULL || currentSum == NULL) {
-        printf("Memory allocation failed\n");
-        exit(1);
-    }
+void other_sum_v2(uint384_t* a, uint384_t* b, uint384_t* c, int length) {
     asm volatile(
-        "vpxor %%ymm0, %%ymm0, %%ymm0\n"                // set ymm0 to zero
         "1:\n"
-        "   vpxor %%ymm1, %%ymm1, %%ymm1\n"  
-        "   vmovdqu (%[nums]), %%ymm1\n"                 // load 256 bits from num into ymm1
-        "   vmovdqu %%ymm0, (%3)\n"                     // store current ymm0 to oldSum before summing
-        "   vpaddq %%ymm1, %%ymm0, %%ymm0\n"            // add ymm1 to ymm0, correct to use 64-bit add
-        "   vmovdqu %%ymm0, (%4)\n"                     // store current ymm0 to currentSum after summing
-        "   add $32, %0\n"                              // move pointer to the next 256 bits
-        "   sub $4, %[len]\n"                               // decrement length by 4
-        "   mov $4, %%ecx\n"                            // Set loop counter for element comparison (4 elements, index 3 to 0)
-        "   mov %3, %%rsi\n"                           // Save oldSum in rsi
-        "   mov %4, %%rdi\n"                           // Save currentSum in rdi
+        "   test %[len], %[len]\n"
+        "   jle 2f\n"
+
+        "   movq %[c], %%rdx\n" 
+
+        "   movq (%[a]), %%rax\n"
+        "   addq (%[b]), %%rax\n"
+        "   movq %%rax, (%%rdx)\n"
+
+        "   movq 8(%[a]), %%rax\n"
+        "   adcq 8(%[b]), %%rax\n"
+        "   movq %%rax, 8(%%rdx)\n"
+
+        "   movq 16(%[a]), %%rax\n"
+        "   adcq 16(%[b]), %%rax\n"
+        "   movq %%rax, 16(%%rdx)\n"
+
+        "   movq 24(%[a]), %%rax\n"
+        "   adcq 24(%[b]), %%rax\n"
+        "   movq %%rax, 24(%%rdx)\n"
+
+        "   movq 32(%[a]), %%rax\n"
+        "   adcq 32(%[b]), %%rax\n"
+        "   movq %%rax, 32(%%rdx)\n"
+
+        "   movq 40(%[a]), %%rax\n"
+        "   adcq 40(%[b]), %%rax\n"
+        "   movq %%rax, 40(%%rdx)\n"
+
+        "   addq $48, %[a]\n"
+        "   addq $48, %[b]\n"
+        "   addq $48, %[c]\n"
+        "   dec %[len]\n"
+        "   jnz 1b\n"
+
         "2:\n"
-        "   movq (%%rsi), %%rax\n"                          // Load from oldSum for comparison
-        "   movq (%%rdi), %%rdx\n"                          // Load from currentSum for comparison
-        "   cmp %%rax, %%rdx\n"                             // Compare currentSum[i] with oldSum[i]
-        "   jge 3f\n"                                       // Jump if currentSum[i] >= oldSum[i], skip to next
-        "   incq %5\n"                                      // Increment overflow_count
-        "3:\n"
-        "   lea 8(%%rdi), %%rdi\n"                      // Move currentSum pointer
-        "   lea 8(%%rsi), %%rsi\n"                      // Move oldSum pointer
-        "   loop 2b\n"                                  // Decrement ecx and loop back to 2:
-        "   jg 1b\n"                                    // loop until length is not greater than 0
-        "vmovdqu %%ymm0, %2\n"                          // store result from ymm0 to result_array
-        : [nums]"+r" (num), [len] "+r" (length), "+m" (result_array), "+r" (oldSum), "+r" (currentSum), "+m" (overflow_count)
+        : [a]"+r"(a), [b]"+r"(b), [c]"+r"(c), [len]"+r"(length)
         :
-        : "ymm0", "ymm1", "rcx", "rax", "rdx", "rsi", "rdi", "cc", "memory"
+        : "rax", "rdx", "memory"
     );
-    //result = traditional_sum(result_array, 4);
-    result.high += overflow_count;
-    printf("over: %lu\n", overflow_count);
-    free(oldSum);
-    free(currentSum);
-    return result;
 }
 
 uint128_t simd_sum_32(int length, uint64_t* low, uint64_t* high) {
@@ -218,10 +177,24 @@ uint128_t simd_sum_32_ass(int length, uint64_t* low, uint64_t* high) {
     return result;
 }
 
+void printFunction(char *functionName, double time, uint384_t* result) {
+    int totalWidth = 15;
+    int nameLength = strlen(functionName);
+    int padding = (totalWidth - nameLength) / 2;
+    printf("-------------------------------- %*s%*s --------------------------------\n", padding + nameLength, functionName, padding, "");
+    printf("- Time (abs): \t%.1f\n", time);
+    printf("- Time (sec): \t%.4f\n", time / CLOCKS_PER_SEC);
+    printf("- Result: \t0x%016lx", result[0].chunk[5]);
+    for (int j = 4; j >= 0; j--) {
+        printf("_%016lx", result[0].chunk[j]);
+    }
+    printf("\n");
+}
+
 int main(int argc, char* argv[]) {
     int size;
     if (argc < 2) {
-        size = 1000;
+        size = 20000000;
     } else {
         size = atoi(argv[1]);
     }
@@ -241,16 +214,27 @@ int main(int argc, char* argv[]) {
             c[i].chunk[j] = 0x0;
         }
     }
-
     clock_t start = clock();
     traditional_sum(a, b, c, size);
     clock_t end = clock();
-    printf("time: %.1f\n", (double)(end - start));
-    printf("result: 0x%016lx", c[0].chunk[5]);
-    for (int j = 4; j >= 0; j--) {
-        printf("_%016lx", c[0].chunk[j]);
+    printFunction("TraditionSum", (double)(end - start), c);
+
+    for (int i = 0; i < size; i++) {
+        for (int j = 0; j < 6; j++) {
+            c[i].chunk[j] = 0x0;
+        }
     }
-    printf("\n");
+
+    for (int i = 0; i < size; i++) {
+        for (int j = 0; j < 6; j++) {
+            c[i].chunk[j] = 0x0;
+        }
+    }
+
+    start = clock();
+    other_sum_v2(a, b, c, size);
+    end = clock();
+    printFunction("other_sum_v2", (double)(end - start), c);
 
     free(a);
     free(b);
