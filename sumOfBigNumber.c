@@ -251,57 +251,6 @@ int main(int argc, char* argv[]) {
     free(num);
     free(high);
     free(low);
-    // uint64_t *num = malloc(size * 4 * sizeof(uint64_t));
-    // if (num == NULL) {
-    //     printf("Memory allocation failed\n");
-    //     return 1;
-    // }
-    // 
-
-    // clock_t start = clock();
-    // uint128_t result = traditional_sum(num, size*4);
-    // clock_t end = clock();
-    // double time_spent = (double)(end - start) / CLOCKS_PER_SEC;
-    // printf("Time spent in traditional sum: %.3f seconds, Result: ", time_spent);
-    // print_uint128(result);
-
-    // start = clock();
-    // result = simd_sum(num, size*4);
-    // end = clock();
-    // time_spent = (double)(end - start) / CLOCKS_PER_SEC;
-    // printf("Time spent in SIMD sum: %.3f seconds, Result: ", time_spent);
-    // print_uint128(result);
-    
-    // uint64_t *low, *high;
-    // // Usa posix_memalign per evitare problemi di allineamento
-    // if (posix_memalign((void**)&low, 64, size*4 * sizeof(uint64_t)) != 0 ||
-    //     posix_memalign((void**)&high, 64, size*4 * sizeof(uint64_t)) != 0) {
-    //     printf("Memory allocation failed\n");
-    //     exit(1);
-    // }
-    // for (int i = 0; i < size*4; i++) {
-    //     low[i] = num[i] & 0xFFFFFFFF;       // Parte bassa
-    //     high[i] = (num[i] >> 32) & 0xFFFFFFFF; // Parte alta
-    // }
-
-    // start = clock();
-    // result = simd_sum_32(size*4, low, high);
-    // end = clock();
-    // time_spent = (double)(end - start) / CLOCKS_PER_SEC;
-    // printf("Time spent in SIMD_v4 sum: %.3f seconds, Result: ", time_spent);
-    // print_uint128(result);
-
-    // start = clock();
-    // result = simd_sum_32_ass(size*4, low, high);
-    // end = clock();
-    // time_spent = (double)(end - start) / CLOCKS_PER_SEC;
-    // printf("Time spent in SIMD_v4 sum: %.3f seconds, Result: ", time_spent);
-    // print_uint128(result);
-    // free(low);
-    // free(high);
-    // free(num);
 
     return 0;
 }
-
-
