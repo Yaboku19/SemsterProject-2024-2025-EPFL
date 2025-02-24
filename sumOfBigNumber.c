@@ -18,32 +18,27 @@ typedef struct {
 } uint384_t;
 
 typedef struct {
-    uint32_t low;
-    uint32_t high;
-} chunk;
-
-typedef struct {
-    chunk chunk[6];
+    uint64_t low[6];
+    uint64_t high[6];
 } uint384_t2;
 
-void generate_large_number(uint384_t* num, int length) {
+void generate_large_number64(uint64_t *num, uint64_t *low, uint64_t *high, int length) {
+    for (int i = 0; i < length; i++) {
+        num[i] = 0xF000000000000000;
+        low[i] = 0xF0000000;
+        high[i] = 0x0;
+    }
+}
+
+void generate_large_number384(uint384_t *num, int length) {
     for (int i = 0; i < length; i++) {
         for (int j = 0; j < 6; j++) {
-            num[i].chunk[j] = 0xF000000000000000;
+            num[i].chunk[j] = 0xF0000000F0000000;
         }
     }
 }
 
-void generate_large_number2(uint384_t2* num, int length) {
-    for (int i = 0; i < length; i++) {
-        for (int j = 0; j < 6; j++) {
-            num[i].chunk[j].high = 0x900000;
-            num[i].chunk[j].low = 0x245200;
-        }
-    }
-}
-
-void traditional_sum(uint384_t* a,uint384_t* b, uint384_t* c, int length) {
+void traditional_sum(uint384_t *a,uint384_t *b, uint384_t *c, int length) {
     for (int i = 0; i < length; i++) {
         for (int j = 0; j < 6; j++) {
             uint64_t new_value = a[i].chunk[j] + a[i].chunk[j];
@@ -55,7 +50,19 @@ void traditional_sum(uint384_t* a,uint384_t* b, uint384_t* c, int length) {
     }
 }
 
-void other_sum_v2(uint384_t* a, uint384_t* b, uint384_t* c, int length) {
+uint128_t traditional_sum64(uint64_t *num, int length) {
+    uint128_t result = {0,0};
+    for (int i = 0; i < length; i++) {
+        uint64_t new_value = result.low + num[i];
+        if (new_value < result.low) {
+            result.high++;
+        }
+        result.low = new_value;
+    }
+    return result;
+}
+
+void sequenzial_sum_ass(uint384_t* a, uint384_t* b, uint384_t* c, int length) {
     asm volatile(
         "1:\n"
         "   test %[len], %[len]\n"
@@ -98,30 +105,6 @@ void other_sum_v2(uint384_t* a, uint384_t* b, uint384_t* c, int length) {
         :
         : "rax", "rdx", "memory"
     );
-}
-
-uint128_t simd_sum_32(int length, uint64_t* low, uint64_t* high) {
-    uint128_t result = {0, 0};
-
-    __m256i sum_low = _mm256_setzero_si256();
-    __m256i sum_high = _mm256_setzero_si256();
-    for (int i = 0; i < length; i += 4) {
-        __m256i data = _mm256_load_si256((__m256i*)(low + i));
-        __m256i data2 = _mm256_load_si256((__m256i*)(high + i));
-        sum_low = _mm256_add_epi64(sum_low, data);
-        sum_high = _mm256_add_epi64(sum_high, data2);
-    }
-
-    uint64_t highValue = 0;
-    uint64_t lowValue = 0;
-    for (int j = 0; j < 4; j++) {
-        highValue += ((uint64_t*)&sum_high)[j];
-        lowValue += ((uint64_t*)&sum_low)[j];
-    }
-    __uint128_t total = ((__uint128_t)(highValue + (lowValue >> 32)) << 32) | lowValue & 0xFFFFFFFF;
-    result.low = (uint64_t)(total & 0xFFFFFFFFFFFFFFFF);
-    result.high = (uint64_t)(total >> 64);
-    return result;
 }
 
 uint128_t simd_sum_32_ass(int length, uint64_t* low, uint64_t* high) {
@@ -177,7 +160,18 @@ uint128_t simd_sum_32_ass(int length, uint64_t* low, uint64_t* high) {
     return result;
 }
 
-void printFunction(char *functionName, double time, uint384_t* result) {
+void printFunction128(char *functionName, double time, uint128_t num) {
+    int totalWidth = 15;
+    int nameLength = strlen(functionName);
+    int padding = (totalWidth - nameLength) / 2;
+    printf("-------------------------------- %*s%*s --------------------------------\n", padding + nameLength, functionName, padding, "");
+    printf("- Time (abs): \t%.1f\n", time);
+    printf("- Time (sec): \t%.4f\n", time / CLOCKS_PER_SEC);
+    printf("- Result: \t0x%lx%016lx", num.high, num.low);
+    printf("\n");
+}
+
+void printFunction384(char *functionName, double time, uint384_t* result) {
     int totalWidth = 15;
     int nameLength = strlen(functionName);
     int padding = (totalWidth - nameLength) / 2;
@@ -194,7 +188,7 @@ void printFunction(char *functionName, double time, uint384_t* result) {
 int main(int argc, char* argv[]) {
     int size;
     if (argc < 2) {
-        size = 20000000;
+        size = 10000000;
     } else {
         size = atoi(argv[1]);
     }
@@ -207,8 +201,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    generate_large_number(a, size);
-    generate_large_number(b, size);
+    generate_large_number384(a, size);
+    generate_large_number384(b, size);
     for (int i = 0; i < size; i++) {
         for (int j = 0; j < 6; j++) {
             c[i].chunk[j] = 0x0;
@@ -217,13 +211,7 @@ int main(int argc, char* argv[]) {
     clock_t start = clock();
     traditional_sum(a, b, c, size);
     clock_t end = clock();
-    printFunction("TraditionSum", (double)(end - start), c);
-
-    for (int i = 0; i < size; i++) {
-        for (int j = 0; j < 6; j++) {
-            c[i].chunk[j] = 0x0;
-        }
-    }
+    printFunction384("TraditionSum", (double)(end - start), c);
 
     for (int i = 0; i < size; i++) {
         for (int j = 0; j < 6; j++) {
@@ -232,23 +220,37 @@ int main(int argc, char* argv[]) {
     }
 
     start = clock();
-    other_sum_v2(a, b, c, size);
+    sequenzial_sum_ass(a, b, c, size);
     end = clock();
-    printFunction("other_sum_v2", (double)(end - start), c);
+    printFunction384("sequenzial_sum_ass", (double)(end - start), c);
 
     free(a);
     free(b);
     free(c);
 
-    uint384_t2 *num2 = malloc(size * sizeof(uint384_t2));
-    if (num2 == NULL) {
+    uint64_t *num = malloc(size * sizeof(uint384_t));
+    uint64_t *high = malloc(size * sizeof(uint384_t));
+    uint64_t *low = malloc(size * sizeof(uint384_t));
+    if (num == NULL || high == NULL || low == NULL) {
         printf("Memory allocation failed\n");
         return 1;
     }
 
-    generate_large_number2(num2, size);
+    generate_large_number64(num, high, low, size);
 
-    free(num2);
+    start = clock();
+    uint128_t result = traditional_sum64(num, size);
+    end = clock();
+    printFunction128("traditional_sum64", (double)(end - start), result);
+
+    start = clock();
+    result = simd_sum_32_ass(size, low, high);
+    end = clock();
+    printFunction128("simd_sum_32_ass", (double)(end - start), result);
+
+    free(num);
+    free(high);
+    free(low);
     // uint64_t *num = malloc(size * 4 * sizeof(uint64_t));
     // if (num == NULL) {
     //     printf("Memory allocation failed\n");
@@ -301,18 +303,5 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
-// void print_uint128(uint128_t num) {
-//     mpz_t big_num;
-//     mpz_init(big_num);
-//     mpz_set_ui(big_num, num.high);  // Imposta la parte alta.
-//     mpz_mul_2exp(big_num, big_num, 64);  // Sposta la parte alta di 64 bit a sinistra.
-//     mpz_add_ui(big_num, big_num, num.low);  // Aggiungi la parte bassa.
 
-//     char *text = mpz_get_str(NULL, 10, big_num);  // Converti il numero a stringa in base 10.
-//     printf("%s\n", text);  // Stampa il numero.
-//     printf("up: %lx down: %lx\n", num.high, num.low);
-//     free(text);  // Libera la memoria allocata da GMP.
-
-//     mpz_clear(big_num);  // Pulisci la memoria usata da GMP.
-// }
 
