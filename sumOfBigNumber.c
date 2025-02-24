@@ -61,7 +61,7 @@ uint128_t traditional_sum64(uint64_t *num, int length) {
     return result;
 }
 
-void sequenzial_sum_ass(uint384_t *a, uint384_t *b, uint384_t *c, int length) {
+void sequential_sum_ass(uint384_t *a, uint384_t *b, uint384_t *c, int length) {
     asm volatile(
         "1:\n"
         "   test %[len], %[len]\n"
@@ -185,13 +185,14 @@ void printFunction384(char *functionName, double time, uint384_t *result) {
 }
 
 int main(int argc, char* argv[]) {
+    /* Parsing of input. */
     int size;
     if (argc < 2) {
         size = 10000000;
     } else {
         size = atoi(argv[1]);
     }
-
+    /* Creation of a, b, c vectors */
     uint384_t *a = malloc(size * sizeof(uint384_t));
     uint384_t *b = malloc(size * sizeof(uint384_t));
     uint384_t *c = malloc(size * sizeof(uint384_t));
@@ -199,7 +200,7 @@ int main(int argc, char* argv[]) {
         printf("Memory allocation failed\n");
         return 1;
     }
-
+    /* Initialization of the three vectors. */
     generate_large_number384(a, size);
     generate_large_number384(b, size);
     for (int i = 0; i < size; i++) {
@@ -207,26 +208,27 @@ int main(int argc, char* argv[]) {
             c[i].chunk[j] = 0x0;
         }
     }
+    /* Run of tradtional sum over 384 vector. */
     clock_t start = clock();
     traditional_sum384(a, b, c, size);
     clock_t end = clock();
     printFunction384("TraditionSum", (double)(end - start), c);
-
+    /* Resetting c. */
     for (int i = 0; i < size; i++) {
         for (int j = 0; j < 6; j++) {
             c[i].chunk[j] = 0x0;
         }
     }
-
+    /* Run of sequential_sum_ass over 384 vector. */
     start = clock();
-    sequenzial_sum_ass(a, b, c, size);
+    sequential_sum_ass(a, b, c, size);
     end = clock();
-    printFunction384("sequenzial_sum_ass", (double)(end - start), c);
-
+    printFunction384("sequential_sum_ass", (double)(end - start), c);
+    /* Free unused memory*/
     free(a);
     free(b);
     free(c);
-
+    /* Creation of num, high, low vectors */
     uint64_t *num = malloc(size * sizeof(uint384_t));
     uint64_t *high = malloc(size * sizeof(uint384_t));
     uint64_t *low = malloc(size * sizeof(uint384_t));
@@ -234,19 +236,19 @@ int main(int argc, char* argv[]) {
         printf("Memory allocation failed\n");
         return 1;
     }
-
+    /* Initialization of the three vectors. */
     generate_large_number64(num, high, low, size);
-
+    /* Run of tradtional sum over 64 vector. */
     start = clock();
     uint128_t result = traditional_sum64(num, size);
     end = clock();
     printFunction128("traditional_sum64", (double)(end - start), result);
-
+    /* Run of simd sum with 32 bit vector. */
     start = clock();
     result = simd_sum_32_ass(size, low, high);
     end = clock();
     printFunction128("simd_sum_32_ass", (double)(end - start), result);
-
+    /* Free unused memory*/
     free(num);
     free(high);
     free(low);
