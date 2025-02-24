@@ -37,7 +37,7 @@ void generate_large_number384(uint384_t *num, int length) {
     }
 }
 
-void traditional_sum(uint384_t *a,uint384_t *b, uint384_t *c, int length) {
+void traditional_sum384(uint384_t *a, uint384_t *b, uint384_t *c, int length) {
     for (int i = 0; i < length; i++) {
         for (int j = 0; j < 6; j++) {
             uint64_t new_value = a[i].chunk[j] + a[i].chunk[j];
@@ -61,7 +61,7 @@ uint128_t traditional_sum64(uint64_t *num, int length) {
     return result;
 }
 
-void sequenzial_sum_ass(uint384_t* a, uint384_t* b, uint384_t* c, int length) {
+void sequenzial_sum_ass(uint384_t *a, uint384_t *b, uint384_t *c, int length) {
     asm volatile(
         "1:\n"
         "   test %[len], %[len]\n"
@@ -106,7 +106,7 @@ void sequenzial_sum_ass(uint384_t* a, uint384_t* b, uint384_t* c, int length) {
     );
 }
 
-uint128_t simd_sum_32_ass(int length, uint64_t* low, uint64_t* high) {
+uint128_t simd_sum_32_ass(int length, uint64_t *low, uint64_t *high) {
     uint128_t result = {0, 0};
     uint64_t lowValue, highvalue;
     asm volatile (
@@ -170,7 +170,7 @@ void printFunction128(char *functionName, double time, uint128_t num) {
     printf("\n");
 }
 
-void printFunction384(char *functionName, double time, uint384_t* result) {
+void printFunction384(char *functionName, double time, uint384_t *result) {
     int totalWidth = 15;
     int nameLength = strlen(functionName);
     int padding = (totalWidth - nameLength) / 2;
@@ -208,7 +208,7 @@ int main(int argc, char* argv[]) {
         }
     }
     clock_t start = clock();
-    traditional_sum(a, b, c, size);
+    traditional_sum384(a, b, c, size);
     clock_t end = clock();
     printFunction384("TraditionSum", (double)(end - start), c);
 
