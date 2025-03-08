@@ -10,19 +10,23 @@
 
 #define MULT_VALUE 10
 #define MAX_LEN 400
+
 typedef struct {
     uint64_t low;
     uint64_t high;
 } uint128_t;
 
 typedef struct {
-    uint128_t low;
-    uint128_t high;
-} uint256_t;
-
-typedef struct {
     uint64_t chunk[6];
 } uint384_t;
+
+typedef struct {
+    uint64_t *chunk;
+} uint384_t_v2;
+
+typedef struct {
+    uint64_t chunk[4];
+} uint256_t;
 
 typedef struct {
     uint64_t low[6];
@@ -41,6 +45,14 @@ void generate_large_number384(uint384_t *num, int length) {
     for (int i = 0; i < length; i++) {
         for (int j = 0; j < 6; j++) {
             num[i].chunk[j] = 0xFFFFFFFFFFFFFFFF;
+        }
+    }
+}
+
+void generate_number_384_v2(uint384_t_v2 *num, int length, uint64_t value) {
+    for(int i = 0; i < 6; i++) {
+        for (int j = 0; j < length; j++) {
+            num[i].chunk[j] = value;
         }
     }
 }
@@ -167,6 +179,69 @@ uint128_t simd_sum_32_ass(int length, uint64_t *low, uint64_t *high) {
     return result;
 }
 
+void simd_sum_32_ass_v2(int length, uint384_t_v2 *upA, uint384_t_v2 *lowA, uint384_t_v2 *upB, uint384_t_v2 *lowB, uint384_t_v2 *upC, uint384_t_v2 *lowC) {
+    uint256_t upMask = {0};
+    uint256_t lowMask = {0};
+    uint256_t rest = {0};
+    upMask.chunk[0] = 0xFFFFFFFF00000000;
+    upMask.chunk[1] = 0xFFFFFFFF00000000;
+    upMask.chunk[2] = 0xFFFFFFFF00000000;
+    upMask.chunk[3] = 0xFFFFFFFF00000000;
+    lowMask.chunk[0] = 0x00000000FFFFFFFF;
+    lowMask.chunk[1] = 0x00000000FFFFFFFF;
+    lowMask.chunk[2] = 0x00000000FFFFFFFF;
+    lowMask.chunk[3] = 0x00000000FFFFFFFF;
+    uint256_t *PupMask = &upMask;
+    uint256_t *PlowMask = &lowMask;
+    uint256_t *Prest = &rest;
+    for (int i = 0; i < 6; i++) {
+        for (int j = 0; j < length; j +=4) {
+            uint64_t *PupA = upA[i].chunk + j;
+            uint64_t *PlowA = lowA[i].chunk + j;
+            uint64_t *PupB = upB[i].chunk + j;
+            uint64_t *PlowB = lowB[i].chunk + j;
+            uint64_t *PupC = upC[i].chunk + j;
+            uint64_t *PlowC = lowC[i].chunk + j;
+            asm volatile (
+                "vpxor %%ymm0, %%ymm0, %%ymm0\n"
+                "vpxor %%ymm1, %%ymm1, %%ymm1\n"
+                "vpxor %%ymm2, %%ymm2, %%ymm2\n"
+                "vpxor %%ymm3, %%ymm3, %%ymm3\n"
+        
+                "vmovdqu (%[lowA]), %%ymm0\n"
+                "vmovdqu (%[lowB]), %%ymm1\n"
+                "vmovdqu (%[rest]), %%ymm2\n"
+                "vpaddq %%ymm1, %%ymm0, %%ymm0\n"
+                "vpaddq %%ymm2, %%ymm0, %%ymm0\n"
+        
+                "vmovdqu (%[lowMask]), %%ymm1\n"
+                "vpand %%ymm0, %%ymm1, %%ymm1\n"
+                "vmovdqu %%ymm1, (%[lowC])\n"
+                "vmovdqu (%[upMask]), %%ymm3\n"
+                "vpand %%ymm0, %%ymm3, %%ymm3\n"
+                "vpsrlq $32, %%ymm3, %%ymm3\n"
+        
+                "vmovdqu (%[upA]), %%ymm1\n"
+                "vmovdqu (%[upB]), %%ymm2\n"
+                "vpaddq %%ymm1, %%ymm2, %%ymm1\n"
+                "vpaddq %%ymm1, %%ymm3, %%ymm1\n"
+        
+                "vmovdqu (%[lowMask]), %%ymm2\n"
+                "vpand %%ymm1, %%ymm2, %%ymm2\n"
+                "vmovdqu %%ymm2, (%[upC])\n"
+                "vmovdqu (%[upMask]), %%ymm2\n"
+                "vpand %%ymm1, %%ymm2, %%ymm2\n"
+                "vpsrlq $32, %%ymm2, %%ymm2\n"
+                "vmovdqu %%ymm2, (%[rest])\n"
+                : [len] "+r" (length), [upA]"+r" (PupA), [lowA]"+r" (PlowA), [upB]"+r" (PupB), [lowB]"+r" (PlowB), 
+                [upC]"+r" (PupC), [lowC]"+r" (PlowC), [upMask]"+r" (PupMask), [lowMask]"+r" (PlowMask), [rest]"+r" (Prest)
+                :
+                : "ymm0", "ymm1", "ymm2", "ymm3", "memory"
+            );
+        }
+    }
+}
+// 
 void multiply_two_variables_optimized(const uint384_t *a, const uint384_t *b, uint384_t *c) {
     __uint128_t temp[6] = {0};
 
@@ -242,16 +317,33 @@ void printFunction384(char *functionName, double time, uint384_t *result) {
     printf("\n");
 }
 
+void printFunction384_v2(char *functionName, double time, uint384_t_v2 *upC, uint384_t_v2 *lowC) {
+    int totalWidth = 15;
+    int nameLength = strlen(functionName);
+    int padding = (totalWidth - nameLength) / 2;
+    printf("-------------------------------- %*s%*s --------------------------------\n", padding + nameLength, functionName, padding, "");
+    printf("- Time (abs): \t%.1f\n", time);
+    printf("- Time (sec): \t%.4f\n", time / CLOCKS_PER_SEC);
+    for (int i = 0; i < 6; i ++) {
+        printf("c[%d] = %08lx%08lx_", i, upC[i].chunk[0], lowC[i].chunk[0]);
+        for(int j = 1; j <4; j++) {
+            printf("_%08lx%08lx", upC[i].chunk[j], lowC[i].chunk[j]);
+        }
+        printf("\n");
+    }
+    
+}
+
 int main(int argc, char* argv[]) {
     /* Parsing of input. */
     int size;
     if (argc < 2) {
-        //     49689.0
         size = 1000000;
     } else {
         size = atoi(argv[1]);
     }
     /* Creation of a, b, c vectors */
+    
     uint384_t *a = malloc(size * sizeof(uint384_t));
     uint384_t *b = malloc(size * sizeof(uint384_t));
     uint384_t *c = malloc(size * sizeof(uint384_t));
@@ -312,173 +404,50 @@ int main(int argc, char* argv[]) {
             c[i].chunk[j] = 0x0;
         }
     }
-    // printf("okwhat-------------------\n");
-    // start = clock();
-    // multiplication384_simd(a, b, c, size);
-    // end = clock();
-    // printFunction384("multiplication384_simd", (double)(end - start), c);
-    /* Free unused memory*/
+
     free(a);
     free(b);
     free(c);
-    /* Creation of num, high, low vectors */
-    uint64_t *num = malloc(size * MULT_VALUE * sizeof(uint384_t));
-    uint64_t *high = malloc(size * MULT_VALUE *  sizeof(uint384_t));
-    uint64_t *low = malloc(size * MULT_VALUE * sizeof(uint384_t));
-    if (num == NULL || high == NULL || low == NULL) {
-        printf("Memory allocation failed\n");
-        return 1;
-    }
-    /* Initialization of the three vectors. */
-    generate_large_number64(num, high, low, size * MULT_VALUE);
-    /* Run of tradtional sum over 64 vector. */
-    start = clock();
-    uint128_t result = traditional_sum64(num, size * MULT_VALUE);
-    end = clock();
-    printFunction128("traditional_sum64", (double)(end - start), result);
-    /* Run of simd sum with 32 bit vector. */
-    start = clock();
-    result = simd_sum_32_ass(size * MULT_VALUE, low, high);
-    end = clock();
-    printFunction128("simd_sum_32_ass", (double)(end - start), result);
-    /* Free unused memory*/
-    free(num);
-    free(high);
-    free(low);
 
+    uint384_t_v2 *upA = malloc(6 * sizeof(uint384_t_v2));
+    uint384_t_v2 *lowA = malloc(6 * sizeof(uint384_t_v2));
+    uint384_t_v2 *upB = malloc(6 * sizeof(uint384_t_v2));
+    uint384_t_v2 *lowB = malloc(6 * sizeof(uint384_t_v2));
+    uint384_t_v2 *upC = malloc(6 * sizeof(uint384_t_v2));
+    uint384_t_v2 *lowC = malloc(6 * sizeof(uint384_t_v2));
+    for(int i = 0; i < 6; i++) {
+        upA[i].chunk = malloc(size * sizeof(uint384_t_v2));
+        lowA[i].chunk = malloc(size * sizeof(uint384_t_v2));
+        upB[i].chunk = malloc(size * sizeof(uint384_t_v2));
+        lowB[i].chunk = malloc(size * sizeof(uint384_t_v2));
+        upC[i].chunk = malloc(size * sizeof(uint384_t_v2));
+        lowC[i].chunk = malloc(size * sizeof(uint384_t_v2));
+    }
+    generate_number_384_v2(upA, size, 0xFFFFFFFF);
+    generate_number_384_v2(lowA, size, 0xFFFFFFFF);
+    generate_number_384_v2(upB, size, 0xFFFFFFFF);
+    generate_number_384_v2(lowB, size, 0xFFFFFFFF);
+    generate_number_384_v2(upC, size, 0x0);
+    generate_number_384_v2(lowC, size, 0x0);
+
+    start = clock();
+    simd_sum_32_ass_v2(size, upA, lowA, upB, lowB, upC, lowC);
+    end = clock();
+    printFunction384_v2("simd_sum_32_ass_v2", (double)(end - start), upC, lowC);
+
+    for(int i = 0; i < 6; i++) {
+        free(upA[i].chunk);
+        free(lowA[i].chunk);
+        free(upB[i].chunk);
+        free(lowB[i].chunk);
+        free(upC[i].chunk);
+        free(lowC[i].chunk);
+    }
+    free(upA);
+    free(lowA);
+    free(upB);
+    free(lowB);
+    free(upC);
+    free(lowC);
     return 0;
 }
-
-// void karatsubaTry(uint64_t a, uint64_t b, uint128_t *c) {
-//     __uint128_t product = (__uint128_t)a * b;
-//     c->low = (uint64_t)product;
-//     c->high = (uint64_t)(product >> 64);
-// }
-
-// void karatsubaTry128(uint128_t a, uint128_t b, uint256_t *c) {
-//     uint64_t a_low = a.low;
-//     uint64_t a_high = a.high;
-//     uint64_t b_low = b.low;
-//     uint64_t b_high = b.high;
-
-//     uint128_t Y, X, mid;
-
-//     karatsubaTry(a_low, b_low, &Y);
-//     karatsubaTry(a_high, b_high, &X);
-
-//     uint128_t a_sum = {a_low + a_high, (a_low + a_high) < a_low};
-//     uint128_t b_sum = {b_low + b_high, (b_low + b_high) < b_low};
-//     if (a_sum.high > 0 || b_sum.high > 0) {
-//         uint256_t temp = {0};
-//         karatsubaTry128(a_sum, b_sum, &temp);
-//         mid = temp.low;
-        
-//     } else {
-//         karatsubaTry(a_sum.low, b_sum.low, &mid);
-//     }
-//     uint64_t old = mid.low;
-//     mid.low -= X.low;
-//     int carry = (old < mid.low ? 1 : 0);
-//     old = mid.low;
-//     mid.low -= Y.low;
-//     carry += (old < mid.low ? 1 : 0);
-//     mid.high -= X.high + Y.high + carry;
-
-//     c->low.low = Y.low;
-//     c->low.high = Y.high + mid.low;
-//     carry = (c->low.high < Y.high ? 1 : 0);
-//     c->high.low = mid.high + X.low + carry;
-//     c->high.high = X.high + (((carry == 1 && c->low.high <= Y.high) || c->low.high < Y.high) ? 1 : 0);
-// }
-
-// void karatsubaTry384(uint384_t a, uint384_t b, uint384_t *c) {
-//     uint128_t a0 = {a.chunk[0], a.chunk[1]};
-//     uint128_t a1 = {a.chunk[2], a.chunk[3]};
-//     uint128_t a2 = {a.chunk[4], a.chunk[5]};
-
-//     uint128_t b0 = {b.chunk[0], b.chunk[1]};
-//     uint128_t b1 = {b.chunk[2], b.chunk[3]};
-//     uint128_t b2 = {b.chunk[4], b.chunk[5]};
-
-//     uint256_t P0, P1;
-//     karatsubaTry128(a0, b0, &P0);
-//     karatsubaTry128(a1, b1, &P1);
-
-//     uint384_t sumA = {0}, sumB = {0};
-//     sumA.chunk[0] = a0.low + a1.low;
-//     sumA.chunk[1] += (sumA.chunk[0] < a0.low ? 1 : 0);
-//     sumA.chunk[0] += a2.low;
-//     sumA.chunk[1] += (sumA.chunk[0] < a2.low ? 1 : 0);
-//     sumA.chunk[1] += a0.low + a1.low;
-//     sumA.chunk[2] += (sumA.chunk[1] < a0.low ? 1 : 0);
-//     sumA.chunk[1] += a2.low;
-//     sumA.chunk[2] += (sumA.chunk[0] < a2.low ? 1 : 0);
-
-//     sumB.chunk[0] = b0.low + b1.low;
-//     sumB.chunk[1] += (sumB.chunk[0] < b0.low ? 1 : 0);
-//     sumB.chunk[0] += b2.low;
-//     sumB.chunk[1] += (sumB.chunk[0] < b2.low ? 1 : 0);
-//     sumB.chunk[1] += b0.low + b1.low;
-//     sumB.chunk[2] += (sumB.chunk[1] < b0.low ? 1 : 0);
-//     sumB.chunk[1] += b2.low;
-//     sumB.chunk[2] += (sumB.chunk[0] < b2.low ? 1 : 0);
-
-//     uint256_t Psum = {0};
-//     if (sumA.chunk[2] > 0 || sumB.chunk[2] > 0) {
-//         uint384_t temp = {0};
-//         karatsubaTry384(sumA, sumB, &temp);
-//         Psum.low.low = temp.chunk[0];
-//         Psum.low.high = temp.chunk[1];
-//         Psum.high.low = temp.chunk[2];
-//         Psum.high.high = temp.chunk[3];
-//         printf("Psum: \t\t%016lx_%016lx_%016lx_%016lx\n", Psum.high.high, Psum.high.low, Psum.low.high, Psum.low.low);
-//     } else {
-//         uint128_t sumA128 = {sumA.chunk[0], sumA.chunk[1]}, sumB128 = {sumB.chunk[0], sumB.chunk[1]};
-//         karatsubaTry128(sumA128, sumB128, &Psum);
-//         printf("Psum: \t\t%016lx_%016lx_%016lx_%016lx\n", Psum.high.high, Psum.high.low, Psum.low.high, Psum.low.low);
-//     }
-//     uint64_t old = Psum.low.low;
-//     int carry = 0;
-//     Psum.low.low -= P0.low.low;
-//     carry = (old < Psum.low.low ? 1 : 0);
-//     old = Psum.low.low;
-//     Psum.low.low -= P1.low.low;
-//     carry += (old < Psum.low.low ? 1 : 0);
-//     old = Psum.low.low;
-
-//     old = Psum.low.high;
-//     Psum.low.high -= carry;
-//     carry = (old < Psum.low.high ? 1 : 0);
-//     old = Psum.low.high;
-//     Psum.low.high -= P0.low.high;
-//     carry += (old < Psum.low.high ? 1 : 0);
-//     old = Psum.low.high;
-//     Psum.low.high  -= P1.low.high;
-//     carry += (old < Psum.low.high ? 1 : 0);
-
-//     old = Psum.high.low;
-//     Psum.high.low -= carry;
-//     carry = (old < Psum.high.low ? 1 : 0);
-//     old = Psum.high.low;
-//     Psum.high.low -= P0.high.low;
-//     carry += (old < Psum.high.low ? 1 : 0);
-//     old = Psum.high.low;
-//     Psum.high.low -= P1.high.low;
-//     carry += (old < Psum.high.low ? 1 : 0);
-
-//     Psum.high.high -= (P0.high.high + P1.high.high + carry);
-//     printf("P0: \t\t%016lx_%016lx_%016lx_%016lx\n", P0.high.high, P0.high.low, P0.low.high, P0.low.low);
-//     printf("P1: \t\t%016lx_%016lx_%016lx_%016lx\n", P1.high.high, P1.high.low, P1.low.high, P1.low.low);
-//     printf("Psum: \t\t%016lx_%016lx_%016lx_%016lx\n", Psum.high.high, Psum.high.low, Psum.low.high, Psum.low.low);
-//     // // Assemblaggio del risultato finale
-//     // 0x8_FFFFFFFFFFFFFFFF_FFFFFFFFFFFFFFEE_0000000000000000_0000000000000009
-//     c->chunk[0] = P0.low.low;
-//     c->chunk[1] = P0.low.high;
-//     c->chunk[2] = P0.high.low + Psum.low.low;
-//     c->chunk[3] = (c->chunk[2] < P0.high.low ? 1 : 0);
-//     c->chunk[3] += P0.high.high + Psum.low.high;
-//     c->chunk[4] = (c->chunk[3] < P0.high.high ? 1 : 0);
-//     c->chunk[4] += Psum.high.low + P1.low.low;
-//     c->chunk[5] = (c->chunk[4] < Psum.high.low ? 1 : 0);
-//     c->chunk[5] += Psum.high.high + P1.low.high;
-// }
