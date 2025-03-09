@@ -10,7 +10,7 @@
 
 #define MULT_VALUE 10
 #define MAX_LEN 400
-
+#define SIZE 10000
 typedef struct {
     uint64_t low;
     uint64_t high;
@@ -21,7 +21,7 @@ typedef struct {
 } uint384_t;
 
 typedef struct {
-    uint64_t *chunk;
+    uint64_t chunk[SIZE];
 } uint384_t_v2;
 
 typedef struct {
@@ -179,69 +179,64 @@ uint128_t simd_sum_32_ass(int length, uint64_t *low, uint64_t *high) {
     return result;
 }
 
-void simd_sum_32_ass_v2(int length, uint384_t_v2 *upA, uint384_t_v2 *lowA, uint384_t_v2 *upB, uint384_t_v2 *lowB, uint384_t_v2 *upC, uint384_t_v2 *lowC) {
-    uint256_t upMask = {0};
-    uint256_t lowMask = {0};
-    uint256_t rest = {0};
-    upMask.chunk[0] = 0xFFFFFFFF00000000;
-    upMask.chunk[1] = 0xFFFFFFFF00000000;
-    upMask.chunk[2] = 0xFFFFFFFF00000000;
-    upMask.chunk[3] = 0xFFFFFFFF00000000;
-    lowMask.chunk[0] = 0x00000000FFFFFFFF;
-    lowMask.chunk[1] = 0x00000000FFFFFFFF;
-    lowMask.chunk[2] = 0x00000000FFFFFFFF;
-    lowMask.chunk[3] = 0x00000000FFFFFFFF;
-    uint256_t *PupMask = &upMask;
-    uint256_t *PlowMask = &lowMask;
-    uint256_t *Prest = &rest;
-    for (int i = 0; i < 6; i++) {
-        for (int j = 0; j < length; j +=4) {
-            uint64_t *PupA = upA[i].chunk + j;
-            uint64_t *PlowA = lowA[i].chunk + j;
-            uint64_t *PupB = upB[i].chunk + j;
-            uint64_t *PlowB = lowB[i].chunk + j;
-            uint64_t *PupC = upC[i].chunk + j;
-            uint64_t *PlowC = lowC[i].chunk + j;
-            asm volatile (
-                "vpxor %%ymm0, %%ymm0, %%ymm0\n"
-                "vpxor %%ymm1, %%ymm1, %%ymm1\n"
-                "vpxor %%ymm2, %%ymm2, %%ymm2\n"
-                "vpxor %%ymm3, %%ymm3, %%ymm3\n"
-        
-                "vmovdqu (%[lowA]), %%ymm0\n"
-                "vmovdqu (%[lowB]), %%ymm1\n"
-                "vmovdqu (%[rest]), %%ymm2\n"
-                "vpaddq %%ymm1, %%ymm0, %%ymm0\n"
-                "vpaddq %%ymm2, %%ymm0, %%ymm0\n"
-        
-                "vmovdqu (%[lowMask]), %%ymm1\n"
-                "vpand %%ymm0, %%ymm1, %%ymm1\n"
-                "vmovdqu %%ymm1, (%[lowC])\n"
-                "vmovdqu (%[upMask]), %%ymm3\n"
-                "vpand %%ymm0, %%ymm3, %%ymm3\n"
-                "vpsrlq $32, %%ymm3, %%ymm3\n"
-        
-                "vmovdqu (%[upA]), %%ymm1\n"
-                "vmovdqu (%[upB]), %%ymm2\n"
-                "vpaddq %%ymm1, %%ymm2, %%ymm1\n"
-                "vpaddq %%ymm1, %%ymm3, %%ymm1\n"
-        
-                "vmovdqu (%[lowMask]), %%ymm2\n"
-                "vpand %%ymm1, %%ymm2, %%ymm2\n"
-                "vmovdqu %%ymm2, (%[upC])\n"
-                "vmovdqu (%[upMask]), %%ymm2\n"
-                "vpand %%ymm1, %%ymm2, %%ymm2\n"
-                "vpsrlq $32, %%ymm2, %%ymm2\n"
-                "vmovdqu %%ymm2, (%[rest])\n"
-                : [len] "+r" (length), [upA]"+r" (PupA), [lowA]"+r" (PlowA), [upB]"+r" (PupB), [lowB]"+r" (PlowB), 
-                [upC]"+r" (PupC), [lowC]"+r" (PlowC), [upMask]"+r" (PupMask), [lowMask]"+r" (PlowMask), [rest]"+r" (Prest)
-                :
-                : "ymm0", "ymm1", "ymm2", "ymm3", "memory"
-            );
-        }
+void simd_sum_32_ass_v2(int length, uint384_t_v2 *upA, uint384_t_v2 *lowA, uint384_t_v2 *upB, uint384_t_v2 *lowB, uint384_t_v2 *upC, uint384_t_v2 *lowC,
+    uint256_t *upMask, uint256_t *lowMask) {
+    
+    for (int i = 0; i < length; i += 4) {
+        uint64_t *PupA = upA[5].chunk + i;
+        uint64_t *PlowA = lowA[5].chunk + i;
+        uint64_t *PupB = upB[5].chunk + i;
+        uint64_t *PlowB = lowB[5].chunk + i;
+        uint64_t *PupC = upC[5].chunk + i;
+        uint64_t *PlowC = lowC[5].chunk + i;
+        size_t addLen = length * sizeof(uint64_t);
+        asm volatile (
+            "vmovdqu (%[lowMask]), %%ymm4\n"    // ymm4 for lowMask
+            "vmovdqu (%[upMask]), %%ymm5\n"     // ymm5 for upMask
+            "vpxor %%ymm6, %%ymm6, %%ymm6\n"    // ymm6 for rest
+            "mov $6, %%r10\n"                   // loop of 6
+            "mov %[len], %%rax\n"
+        "1:\n"
+            "vmovdqu (%[lowA]), %%ymm0\n"       // first operand in ymm0
+            "vmovdqu (%[lowB]), %%ymm1\n"       // second operand in ymm1
+
+            "vpaddq %%ymm1, %%ymm0, %%ymm0\n"   // sum in ymm0
+            "vpaddq %%ymm6, %%ymm0, %%ymm0\n"   // sum the rest
+
+            "vpand %%ymm0, %%ymm4, %%ymm1\n"    // and with lowerMap
+            "vmovdqu %%ymm1, (%[lowC])\n"       // back in lowC
+            "vpand %%ymm0, %%ymm5, %%ymm6\n"    // and with upMask
+            "vpsrlq $32, %%ymm6, %%ymm6\n"      // new rest
+
+            "vmovdqu (%[upA]), %%ymm1\n"        // first operand in ymm1
+            "vmovdqu (%[upB]), %%ymm2\n"        // second operand in ymm2
+
+            "vpaddq %%ymm1, %%ymm2, %%ymm1\n"   // sum in ymm1
+            "vpaddq %%ymm1, %%ymm6, %%ymm1\n"   // sum the rest
+
+            "vpand %%ymm1, %%ymm4, %%ymm2\n"    // and with lowerMap
+            "vmovdqu %%ymm2, (%[upC])\n"        // back in upC
+            "vpand %%ymm1, %%ymm5, %%ymm6\n"    // and with upMask
+            "vpsrlq $32, %%ymm6, %%ymm6\n"      // new rest
+
+            "sub %%rax, %[lowA]\n"              // new pointers
+            "sub %%rax, %[lowB]\n"
+            "sub %%rax, %[upA]\n"
+            "sub %%rax, %[upB]\n"
+            "sub %%rax, %[lowC]\n"
+            "sub %%rax, %[upC]\n"
+
+            "dec %%r10\n"                       // Decrement counter
+            "jnz 1b\n"                          //if not zero, loop again
+
+            : [len] "+r" (addLen), [upA]"+r" (PupA), [lowA]"+r" (PlowA), [upB]"+r" (PupB), [lowB]"+r" (PlowB), 
+            [upC]"+r" (PupC), [lowC]"+r" (PlowC), [upMask]"+r" (upMask), [lowMask]"+r" (lowMask)
+            :
+            : "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "r10", "rax", "memory"
+        );
     }
 }
-// 
+
 void multiply_two_variables_optimized(const uint384_t *a, const uint384_t *b, uint384_t *c) {
     __uint128_t temp[6] = {0};
 
@@ -310,11 +305,14 @@ void printFunction384(char *functionName, double time, uint384_t *result) {
     printf("-------------------------------- %*s%*s --------------------------------\n", padding + nameLength, functionName, padding, "");
     printf("- Time (abs): \t%.1f\n", time);
     printf("- Time (sec): \t%.4f\n", time / CLOCKS_PER_SEC);
-    printf("- Result: \t0x%016lx", result[0].chunk[5]);
-    for (int j = 4; j >= 0; j--) {
-        printf("_%016lx", result[0].chunk[j]);
+    for(int i = 0; i < 4; i ++) {
+        printf("- Result[%d]: \t0x%016lx", i, result[i].chunk[5]);
+        for (int j = 4; j >= 0; j--) {
+            printf("_%016lx", result[i].chunk[j]);
+        }
+        printf("\n");
     }
-    printf("\n");
+
 }
 
 void printFunction384_v2(char *functionName, double time, uint384_t_v2 *upC, uint384_t_v2 *lowC) {
@@ -324,10 +322,10 @@ void printFunction384_v2(char *functionName, double time, uint384_t_v2 *upC, uin
     printf("-------------------------------- %*s%*s --------------------------------\n", padding + nameLength, functionName, padding, "");
     printf("- Time (abs): \t%.1f\n", time);
     printf("- Time (sec): \t%.4f\n", time / CLOCKS_PER_SEC);
-    for (int i = 0; i < 6; i ++) {
-        printf("c[%d] = %08lx%08lx_", i, upC[i].chunk[0], lowC[i].chunk[0]);
-        for(int j = 1; j <4; j++) {
-            printf("_%08lx%08lx", upC[i].chunk[j], lowC[i].chunk[j]);
+    for(int i = 0; i < 8; i ++) {
+        printf("Result[%d] = \t0x%08lx%08lx", i, upC[0].chunk[i], lowC[0].chunk[i]);
+        for(int j = 1; j < 6; j++) {
+            printf("_%08lx%08lx", upC[j].chunk[i], lowC[j].chunk[i]);
         }
         printf("\n");
     }
@@ -338,7 +336,7 @@ int main(int argc, char* argv[]) {
     /* Parsing of input. */
     int size;
     if (argc < 2) {
-        size = 1000000;
+        size = SIZE;
     } else {
         size = atoi(argv[1]);
     }
@@ -375,54 +373,47 @@ int main(int argc, char* argv[]) {
     sequential_sum_ass(a, b, c, size);
     end = clock();
     printFunction384("sequential_sum_ass", (double)(end - start), c);
-    /* Resetting c. */
-    for (int i = 0; i < size; i++) {
-        for (int j = 0; j < 6; j++) {
-            c[i].chunk[j] = 0x0;
-        }
-    }
-    /* Run of tradtional moltiplication over 384 vector. */    
-    start = clock();
-    fast_384_multiplication(a, b, c, size);
-    end = clock();
-    printFunction384("fast_384_multiplication", (double)(end - start), c);
-    /* Resetting c. */
-    for (int i = 0; i < size; i++) {
-        for (int j = 0; j < 6; j++) {
-            c[i].chunk[j] = 0x0;
-        }
-    }
-    start = clock();
-    multiplication384_kar(a, b, c, size);
-    end = clock();
+    // /* Resetting c. */
+    // for (int i = 0; i < size; i++) {
+    //     for (int j = 0; j < 6; j++) {
+    //         c[i].chunk[j] = 0x0;
+    //     }
+    // }
+    // /* Run of tradtional moltiplication over 384 vector. */    
+    // start = clock();
+    // fast_384_multiplication(a, b, c, size);
+    // end = clock();
+    // printFunction384("fast_384_multiplication", (double)(end - start), c);
+    // /* Resetting c. */
+    // for (int i = 0; i < size; i++) {
+    //     for (int j = 0; j < 6; j++) {
+    //         c[i].chunk[j] = 0x0;
+    //     }
+    // }
+    // start = clock();
+    // multiplication384_kar(a, b, c, size);
+    // end = clock();
     
-    printFunction384("multiplication384_kar", (double)(end - start), c);
-    /* Resetting c. */
+    // printFunction384("multiplication384_kar", (double)(end - start), c);
+    // /* Resetting c. */
     
-    for (int i = 0; i < size; i++) {
-        for (int j = 0; j < 6; j++) {
-            c[i].chunk[j] = 0x0;
-        }
-    }
+    // for (int i = 0; i < size; i++) {
+    //     for (int j = 0; j < 6; j++) {
+    //         c[i].chunk[j] = 0x0;
+    //     }
+    // }
 
     free(a);
     free(b);
     free(c);
 
-    uint384_t_v2 *upA = malloc(6 * sizeof(uint384_t_v2));
-    uint384_t_v2 *lowA = malloc(6 * sizeof(uint384_t_v2));
-    uint384_t_v2 *upB = malloc(6 * sizeof(uint384_t_v2));
-    uint384_t_v2 *lowB = malloc(6 * sizeof(uint384_t_v2));
-    uint384_t_v2 *upC = malloc(6 * sizeof(uint384_t_v2));
-    uint384_t_v2 *lowC = malloc(6 * sizeof(uint384_t_v2));
-    for(int i = 0; i < 6; i++) {
-        upA[i].chunk = malloc(size * sizeof(uint384_t_v2));
-        lowA[i].chunk = malloc(size * sizeof(uint384_t_v2));
-        upB[i].chunk = malloc(size * sizeof(uint384_t_v2));
-        lowB[i].chunk = malloc(size * sizeof(uint384_t_v2));
-        upC[i].chunk = malloc(size * sizeof(uint384_t_v2));
-        lowC[i].chunk = malloc(size * sizeof(uint384_t_v2));
-    }
+    uint384_t_v2 upA[6] = {0};
+    uint384_t_v2 lowA[6] = {0};
+    uint384_t_v2 upB[6] = {0};
+    uint384_t_v2 lowB[6] = {0};
+    uint384_t_v2 upC[6] = {0};
+    uint384_t_v2 lowC[6] = {0};
+
     generate_number_384_v2(upA, size, 0xFFFFFFFF);
     generate_number_384_v2(lowA, size, 0xFFFFFFFF);
     generate_number_384_v2(upB, size, 0xFFFFFFFF);
@@ -430,24 +421,22 @@ int main(int argc, char* argv[]) {
     generate_number_384_v2(upC, size, 0x0);
     generate_number_384_v2(lowC, size, 0x0);
 
+    uint256_t upMask = {0};
+    uint256_t lowMask = {0};
+    upMask.chunk[0] = 0xFFFFFFFF00000000;
+    upMask.chunk[1] = 0xFFFFFFFF00000000;
+    upMask.chunk[2] = 0xFFFFFFFF00000000;
+    upMask.chunk[3] = 0xFFFFFFFF00000000;
+    lowMask.chunk[0] = 0x00000000FFFFFFFF;
+    lowMask.chunk[1] = 0x00000000FFFFFFFF;
+    lowMask.chunk[2] = 0x00000000FFFFFFFF;
+    lowMask.chunk[3] = 0x00000000FFFFFFFF;
+
     start = clock();
-    simd_sum_32_ass_v2(size, upA, lowA, upB, lowB, upC, lowC);
+    simd_sum_32_ass_v2(size, upA, lowA, upB, lowB, upC, lowC, &upMask, &lowMask);
     end = clock();
     printFunction384_v2("simd_sum_32_ass_v2", (double)(end - start), upC, lowC);
 
-    for(int i = 0; i < 6; i++) {
-        free(upA[i].chunk);
-        free(lowA[i].chunk);
-        free(upB[i].chunk);
-        free(lowB[i].chunk);
-        free(upC[i].chunk);
-        free(lowC[i].chunk);
-    }
-    free(upA);
-    free(lowA);
-    free(upB);
-    free(lowB);
-    free(upC);
-    free(lowC);
+    
     return 0;
 }
