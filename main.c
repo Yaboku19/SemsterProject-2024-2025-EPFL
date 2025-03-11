@@ -1,12 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <immintrin.h>
-#include <stdint.h>
-#include <inttypes.h>
 #include <time.h>
-#include <stdint.h>
-#include <string.h>
-#include <ctype.h>
 #include "header/struct.h"
 #include "header/print.h"
 #include "header/generation.h"
