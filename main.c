@@ -22,7 +22,6 @@ int main(int argc, char* argv[]) {
         size = atoi(argv[1]);
     }
     /* Creation of a, b, c vectors */
-    
     uint384_t *a = malloc(size * sizeof(uint384_t));
     uint384_t *b = malloc(size * sizeof(uint384_t));
     uint384_t *c = malloc(size * sizeof(uint384_t));
@@ -54,34 +53,33 @@ int main(int argc, char* argv[]) {
     sequential_sum_ass(a, b, c, size);
     end = clock();
     printFunction384("sequential_sum_ass", (double)(end - start), c);
-
+    // free memory
     free(a);
     free(b);
     free(c);
-
+    // creation of all the memory I need
     uint384_t_v2 upA[6] = {0};
     uint384_t_v2 lowA[6] = {0};
     uint384_t_v2 upB[6] = {0};
     uint384_t_v2 lowB[6] = {0};
     uint384_t_v2 upC[6] = {0};
     uint384_t_v2 lowC[6] = {0};
-
+    // fill the memory
     generate_number_384_v2(upA, size, 0x0);
     generate_number_384_v2(lowA, size, 0xFFFFF000);
     generate_number_384_v2(upB, size, 0x0);
     generate_number_384_v2(lowB, size, 0xFFFFF000);
     generate_number_384_v2(upC, size, 0x0);
     generate_number_384_v2(lowC, size, 0x0);
-
+    // creation of the masks
     uint256_t upMask = {0xFFFFFFFF00000000, 0xFFFFFFFF00000000, 0xFFFFFFFF00000000, 0xFFFFFFFF00000000};
     uint256_t lowMask = {0x00000000FFFFFFFF, 0x00000000FFFFFFFF, 0x00000000FFFFFFFF,0x00000000FFFFFFFF};
-
+    // run new simd sum
     start = clock();
     simd_sum_32_ass_v2(size, upA, lowA, upB, lowB, upC, lowC, &upMask, &lowMask);
     end = clock();
     printFunction384_v2("simd_sum_32_ass_v2", (double)(end - start), upC, lowC);
 
-    
     return 0;
 }
 
