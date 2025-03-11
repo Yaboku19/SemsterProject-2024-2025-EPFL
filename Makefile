@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -g -mavx2 -O2 -mavx512f -mavx512dq
-TARGET = sumOfBigNumber.o
-SRC = sumOfBigNumber.c implementation/print.c implementation/generation.c implementation/sum.c
+TARGET = main.o
+SRC = main.c implementation/print.c implementation/generation.c implementation/sum.c implementation/moltiplication.c
 HEADERS = header/struct.h header/print.h
 
 all: $(TARGET)
