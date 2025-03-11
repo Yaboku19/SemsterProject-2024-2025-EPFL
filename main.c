@@ -31,8 +31,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     /* Initialization of the three vectors. */
-    generate_large_number384(a, size);
-    generate_large_number384(b, size);
+    generate_large_number384(a, size, 0x0F0000F0FFFFF000);
+    generate_large_number384(b, size, 0x0F0000F0FFFFF000);
     for (int i = 0; i < size; i++) {
         for (int j = 0; j < 6; j++) {
             c[i].chunk[j] = 0x0;
@@ -54,35 +54,6 @@ int main(int argc, char* argv[]) {
     sequential_sum_ass(a, b, c, size);
     end = clock();
     printFunction384("sequential_sum_ass", (double)(end - start), c);
-    // /* Resetting c. */
-    // for (int i = 0; i < size; i++) {
-    //     for (int j = 0; j < 6; j++) {
-    //         c[i].chunk[j] = 0x0;
-    //     }
-    // }
-    // /* Run of tradtional moltiplication over 384 vector. */    
-    // start = clock();
-    // fast_384_multiplication(a, b, c, size);
-    // end = clock();
-    // printFunction384("fast_384_multiplication", (double)(end - start), c);
-    // /* Resetting c. */
-    // for (int i = 0; i < size; i++) {
-    //     for (int j = 0; j < 6; j++) {
-    //         c[i].chunk[j] = 0x0;
-    //     }
-    // }
-    // start = clock();
-    // multiplication384_kar(a, b, c, size);
-    // end = clock();
-    
-    // printFunction384("multiplication384_kar", (double)(end - start), c);
-    // /* Resetting c. */
-    
-    // for (int i = 0; i < size; i++) {
-    //     for (int j = 0; j < 6; j++) {
-    //         c[i].chunk[j] = 0x0;
-    //     }
-    // }
 
     free(a);
     free(b);
@@ -113,3 +84,33 @@ int main(int argc, char* argv[]) {
     
     return 0;
 }
+
+    // /* Resetting c. */
+    // for (int i = 0; i < size; i++) {
+    //     for (int j = 0; j < 6; j++) {
+    //         c[i].chunk[j] = 0x0;
+    //     }
+    // }
+    // /* Run of tradtional moltiplication over 384 vector. */    
+    // start = clock();
+    // fast_384_multiplication(a, b, c, size);
+    // end = clock();
+    // printFunction384("fast_384_multiplication", (double)(end - start), c);
+    // /* Resetting c. */
+    // for (int i = 0; i < size; i++) {
+    //     for (int j = 0; j < 6; j++) {
+    //         c[i].chunk[j] = 0x0;
+    //     }
+    // }
+    // start = clock();
+    // multiplication384_kar(a, b, c, size);
+    // end = clock();
+    
+    // printFunction384("multiplication384_kar", (double)(end - start), c);
+    // /* Resetting c. */
+    
+    // for (int i = 0; i < size; i++) {
+    //     for (int j = 0; j < 6; j++) {
+    //         c[i].chunk[j] = 0x0;
+    //     }
+    // }

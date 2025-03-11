@@ -2,18 +2,19 @@
 #include "../header/struct.h"
 #include <stdio.h>
 
-void generate_large_number64(uint64_t *num, uint64_t *low, uint64_t *high, int length) {
+void generate_large_number64(uint64_t *num, uint64_t *low, uint64_t *high, int length, 
+        uint64_t numValue, uint64_t lowValue, uint64_t highValue) {
     for (int i = 0; i < length; i++) {
-        num[i] = 0xFFFFFFFFFFFFFFFF;
-        low[i] = 0xFFFFFFFF;
-        high[i] = 0x0;
+        num[i] = numValue;
+        low[i] = lowValue;
+        high[i] = highValue;
     }
 }
 
-void generate_large_number384(uint384_t *num, int length) {
+void generate_large_number384(uint384_t *num, int length, uint64_t chunkValue) {
     for (int i = 0; i < length; i++) {
         for (int j = 0; j < 6; j++) {
-            num[i].chunk[j] = 0x0F0000F0FFFFF000;
+            num[i].chunk[j] = chunkValue;
         }
     }
 }
