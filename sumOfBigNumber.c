@@ -7,31 +7,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <ctype.h>
-
-#define MULT_VALUE 10
-#define SIZE 10
-
-typedef struct {
-    uint64_t low;
-    uint64_t high;
-} uint128_t;
-
-typedef struct {
-    uint64_t chunk[6];
-} uint384_t;
-
-typedef struct {
-    uint64_t chunk[SIZE + SIZE % 4];
-} uint384_t_v2;
-
-typedef struct {
-    uint64_t chunk[4];
-} uint256_t;
-
-typedef struct {
-    uint64_t low[6];
-    uint64_t high[6];
-} uint384_t2;
+#include "header/struct.h"
 
 void generate_large_number64(uint64_t *num, uint64_t *low, uint64_t *high, int length) {
     for (int i = 0; i < length; i++) {
