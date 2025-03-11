@@ -39,12 +39,11 @@ void printFunction384_v2(char *functionName, double time, uint384_t_v2 *upC, uin
     printf("-------------------------------- %*s%*s --------------------------------\n", padding + nameLength, functionName, padding, "");
     printf("- Time (abs): \t%.1f\n", time);
     printf("- Time (sec): \t%.4f\n", time / CLOCKS_PER_SEC);
-    for(int i = 0; i < 12; i ++) {
-        printf("Result[%d] = \t0x%08lx%08lx", i, upC[0].chunk[i], lowC[0].chunk[i]);
+    for(int i = 0; i < SIZE; i ++) {
+        printf("low[%d] = \t0x%08lx%08lx", i, upC[0].chunk[i], lowC[0].chunk[i]);
         for(int j = 1; j < 6; j++) {
             printf("_%08lx%08lx", upC[j].chunk[i], lowC[j].chunk[i]);
         }
         printf("\n");
     }
-    
 }

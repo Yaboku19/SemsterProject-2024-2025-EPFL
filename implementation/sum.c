@@ -5,7 +5,7 @@
 void traditional_sum384(uint384_t *a, uint384_t *b, uint384_t *c, int length) {
     for (int i = 0; i < length; i++) {
         for (int j = 0; j < 6; j++) {
-            uint64_t new_value = a[i].chunk[j] + a[i].chunk[j];
+            uint64_t new_value = a[i].chunk[j] + b[i].chunk[j];
             if(new_value < a[i].chunk[j] && j != 5) {
                 c[i].chunk[j+1] += 1;
             }
@@ -133,7 +133,7 @@ void simd_sum_32_ass_v2(int length, uint384_t_v2 *upA, uint384_t_v2 *lowA, uint3
     uint64_t *PupC = upC[5].chunk;
     uint64_t *PlowC = lowC[5].chunk;
     size_t addLen = length * sizeof(uint64_t);
-    size_t restore = (addLen * 6) + 32;
+    size_t restore = (addLen * 7) + 32;
     asm volatile (
         "vmovdqu (%[lowMask]), %%ymm4\n"    // ymm4 for lowMask
         "vmovdqu (%[upMask]), %%ymm5\n"     // ymm5 for upMask
@@ -141,7 +141,7 @@ void simd_sum_32_ass_v2(int length, uint384_t_v2 *upA, uint384_t_v2 *lowA, uint3
         "mov %[restore], %%rbx\n"
     "1:\n"
         "vpxor %%ymm6, %%ymm6, %%ymm6\n"    // ymm6 for rest
-        "mov $6, %%r10\n"                   // loop of 6
+        "mov $6, %%rcx\n"                   // loop of 6
     "2:\n"
         "vmovdqu (%[lowA]), %%ymm0\n"       // first operand in ymm0
         "vmovdqu (%[lowB]), %%ymm1\n"       // second operand in ymm1
@@ -172,8 +172,8 @@ void simd_sum_32_ass_v2(int length, uint384_t_v2 *upA, uint384_t_v2 *lowA, uint3
         "sub %%rax, %[lowC]\n"
         "sub %%rax, %[upC]\n"
 
-        "dec %%r10\n"                       // Decrement counter
-        "jnz 2b\n"                          //if not zero, loop again
+        "dec %%rcx\n"                       // Decrement counter
+        "jge 2b\n"                          //if not zero, loop again
 
         "add %%rbx, %[lowA]\n"              // new pointers
         "add %%rbx, %[lowB]\n"
@@ -187,6 +187,12 @@ void simd_sum_32_ass_v2(int length, uint384_t_v2 *upA, uint384_t_v2 *lowA, uint3
         : [len] "+r" (length), [addLen] "+r" (addLen), [restore] "+r" (restore), [upA]"+r" (PupA), [lowA]"+r" (PlowA), [upB]"+r" (PupB), [lowB]"+r" (PlowB), 
         [upC]"+r" (PupC), [lowC]"+r" (PlowC), [upMask]"+r" (upMask), [lowMask]"+r" (lowMask)
         :
-        : "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "r10", "rax", "rbx", "memory"
+        : "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "rcx", "rax", "rbx", "memory"
     );
 }
+/*
+certification:
+- OCP / oldCP? (expensive 2k)
+- CPTF (400) hack the box
+- do more CTF
+*/
