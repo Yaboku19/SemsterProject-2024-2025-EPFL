@@ -1,3 +1,4 @@
+#pragma once
 #include "struct.h"
 
 void printFunction128(char *functionName, double time, uint128_t num);

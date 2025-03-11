@@ -1,4 +1,5 @@
 #include <stdint.h>
+#pragma once
 
 #define MULT_VALUE 10
 #define SIZE 10

@@ -2,6 +2,7 @@
 #include "../header/struct.h"
 #include <stdio.h>
 #include <time.h>
+#include <string.h>
 
 void printFunction128(char *functionName, double time, uint128_t num) {
     int totalWidth = 15;
