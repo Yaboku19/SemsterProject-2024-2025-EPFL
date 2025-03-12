@@ -1,7 +1,7 @@
 #pragma once
 #include "struct.h"
 
-void traditional_sum384(uint384_t *a, uint384_t *b, uint384_t *c, int length);
+void normalSumArray384(uint384_t *a, uint384_t *b, uint384_t *c, int length);
 
 void sequential_sum_ass(uint384_t *a, uint384_t *b, uint384_t *c, int length);
 

@@ -2,15 +2,19 @@
 #include "../header/struct.h"
 #include <stdio.h>
 
-void traditional_sum384(uint384_t *a, uint384_t *b, uint384_t *c, int length) {
-    for (int i = 0; i < length; i++) {
-        for (int j = 0; j < 6; j++) {
-            uint64_t new_value = a[i].chunk[j] + b[i].chunk[j];
-            if(new_value < a[i].chunk[j] && j != 5) {
-                c[i].chunk[j+1] += 1;
-            }
-            c[i].chunk[j] += new_value;
+void normalSumTwoVariables384 (uint384_t a, uint384_t b, uint384_t *c) {
+    for (int i = 0; i < 6; i++) {
+        uint64_t new_value = a.chunk[i] + b.chunk[i];
+        if(new_value < a.chunk[i] && i != 5) {
+            c->chunk[i+1] += 1;
         }
+        c->chunk[i] += new_value;
+    }
+}
+
+void normalSumArray384(uint384_t *a, uint384_t *b, uint384_t *c, int length) {
+    for (int i = 0; i < length; i++) {
+        normalSumTwoVariables384(a[i], b[i], &c[i]);
     }
 }
 
