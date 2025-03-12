@@ -2,7 +2,7 @@
 #include "../header/struct.h"
 #include <stdio.h>
 
-void normalSumTwoVariables384 (uint384_t a, uint384_t b, uint384_t *c) {
+void normalSumTwoVariables384(uint384_t a, uint384_t b, uint384_t *c) {
     for (int i = 0; i < 6; i++) {
         uint64_t new_value = a.chunk[i] + b.chunk[i];
         if(new_value < a.chunk[i] && i != 5) {
@@ -18,13 +18,8 @@ void normalSumArray384(uint384_t *a, uint384_t *b, uint384_t *c, int length) {
     }
 }
 
-
-void sequential_sum_ass(uint384_t *a, uint384_t *b, uint384_t *c, int length) {
+void sequentialSumTwoVariables384_ass(uint384_t *a, uint384_t *b, uint384_t *c) {
     asm volatile(
-        "1:\n"
-        "   test %[len], %[len]\n"
-        "   jle 2f\n"
-
         "   movq %[c], %%rdx\n" 
 
         "   movq (%[a]), %%rax\n"
@@ -54,35 +49,26 @@ void sequential_sum_ass(uint384_t *a, uint384_t *b, uint384_t *c, int length) {
         "   addq $48, %[a]\n"
         "   addq $48, %[b]\n"
         "   addq $48, %[c]\n"
-        "   dec %[len]\n"
-        "   jnz 1b\n"
-
-        "2:\n"
-        : [a]"+r"(a), [b]"+r"(b), [c]"+r"(c), [len]"+r"(length)
+        : [a]"+r"(a), [b]"+r"(b), [c]"+r"(c)
         :
         : "rax", "rdx", "memory"
     );
 }
 
-void simd_sum_32_ass_v2(int length, uint384_t_v2 *upA, uint384_t_v2 *lowA, uint384_t_v2 *upB, uint384_t_v2 *lowB, uint384_t_v2 *upC, uint384_t_v2 *lowC,
-        uint256_t *upMask, uint256_t *lowMask) {
-    uint64_t *PupA = upA[5].chunk;
-    uint64_t *PlowA = lowA[5].chunk;
-    uint64_t *PupB = upB[5].chunk;
-    uint64_t *PlowB = lowB[5].chunk;
-    uint64_t *PupC = upC[5].chunk;
-    uint64_t *PlowC = lowC[5].chunk;
-    size_t addLen = length * sizeof(uint64_t);
-    size_t restore = (addLen * 7) + 32;
+void sequentialSumArray384_ass(uint384_t *a, uint384_t *b, uint384_t *c, int length) {
+    for (int i = 0; i < length; i++) {
+        sequentialSumTwoVariables384_ass(&a[i], &b[i], &c[i]);
+    }
+}
+
+void simdTwoVariables384_ass(uint256_t *upA, uint256_t *lowA, uint256_t *upB, uint256_t *lowB, 
+        uint256_t *upC, uint256_t *lowC, uint256_t *upMask, uint256_t *lowMask) {
     asm volatile (
         "vmovdqu (%[lowMask]), %%ymm4\n"    // ymm4 for lowMask
         "vmovdqu (%[upMask]), %%ymm5\n"     // ymm5 for upMask
-        "mov %[addLen], %%rax\n"
-        "mov %[restore], %%rbx\n"
-    "1:\n"
         "vpxor %%ymm6, %%ymm6, %%ymm6\n"    // ymm6 for rest
         "mov $6, %%rcx\n"                   // loop of 6
-    "2:\n"
+    "1:\n"
         "vmovdqu (%[lowA]), %%ymm0\n"       // first operand in ymm0
         "vmovdqu (%[lowB]), %%ymm1\n"       // second operand in ymm1
 
@@ -105,30 +91,29 @@ void simd_sum_32_ass_v2(int length, uint384_t_v2 *upA, uint384_t_v2 *lowA, uint3
         "vpand %%ymm1, %%ymm5, %%ymm6\n"    // and with upMask
         "vpsrlq $32, %%ymm6, %%ymm6\n"      // new rest
 
-        "sub %%rax, %[lowA]\n"              // new pointers
-        "sub %%rax, %[lowB]\n"
-        "sub %%rax, %[upA]\n"
-        "sub %%rax, %[upB]\n"
-        "sub %%rax, %[lowC]\n"
-        "sub %%rax, %[upC]\n"
+        "add $32, %[lowA]\n"                     // new pointers
+        "add $32, %[lowB]\n"
+        "add $32, %[upA]\n"
+        "add $32, %[upB]\n"
+        "add $32, %[lowC]\n"
+        "add $32, %[upC]\n"
 
-        "dec %%rcx\n"                       // Decrement counter
-        "jge 2b\n"                          //if not zero, loop again
-
-        "add %%rbx, %[lowA]\n"              // new pointers
-        "add %%rbx, %[lowB]\n"
-        "add %%rbx, %[upA]\n"
-        "add %%rbx, %[upB]\n"
-        "add %%rbx, %[lowC]\n"
-        "add %%rbx, %[upC]\n"
-
-        "sub $4, %[len]\n"
-        "jg 1b\n"
-        : [len] "+r" (length), [addLen] "+r" (addLen), [restore] "+r" (restore), [upA]"+r" (PupA), [lowA]"+r" (PlowA), [upB]"+r" (PupB), [lowB]"+r" (PlowB), 
-        [upC]"+r" (PupC), [lowC]"+r" (PlowC), [upMask]"+r" (upMask), [lowMask]"+r" (lowMask)
+        "dec %%rcx\n"                       // decrement counter
+        "jge 1b\n"                          // if not zero, loop again
+        : [upA]"+r" (upA), [lowA]"+r" (lowA), [upB]"+r" (upB), [lowB]"+r" (lowB), 
+        [upC]"+r" (upC), [lowC]"+r" (lowC), [upMask]"+r" (upMask), [lowMask]"+r" (lowMask)
         :
         : "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "rcx", "rax", "rbx", "memory"
     );
+
+}
+
+void simdSumArray384_ass(int length, four_uint384_t *upA, four_uint384_t *lowA, four_uint384_t *upB, four_uint384_t *lowB, 
+        four_uint384_t *upC, four_uint384_t *lowC, uint256_t *upMask, uint256_t *lowMask) {
+    for (int i = 0; i < length; i++) {
+        simdTwoVariables384_ass(upA[i].chunk, lowA[i].chunk, upB[i].chunk, lowB[i].chunk,
+            upC[i].chunk, lowC[i].chunk, upMask, lowMask);
+    }
 }
 /*
 certification:
