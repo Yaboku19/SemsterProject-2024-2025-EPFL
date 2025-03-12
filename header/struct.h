@@ -2,7 +2,7 @@
 #pragma once
 
 #define MULT_VALUE 10
-#define SIZE 10
+#define SIZE 20000
 
 typedef struct {
     uint64_t low;
@@ -20,8 +20,3 @@ typedef struct {
 typedef struct {
     uint64_t chunk[4];
 } uint256_t;
-
-typedef struct {
-    uint64_t low[6];
-    uint64_t high[6];
-} uint384_t2;

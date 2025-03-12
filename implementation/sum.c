@@ -14,17 +14,6 @@ void traditional_sum384(uint384_t *a, uint384_t *b, uint384_t *c, int length) {
     }
 }
 
-uint128_t traditional_sum64(uint64_t *num, int length) {
-    uint128_t result = {0,0};
-    for (int i = 0; i < length; i++) {
-        uint64_t new_value = result.low + num[i];
-        if (new_value < result.low) {
-            result.high++;
-        }
-        result.low = new_value;
-    }
-    return result;
-}
 
 void sequential_sum_ass(uint384_t *a, uint384_t *b, uint384_t *c, int length) {
     asm volatile(
@@ -69,59 +58,6 @@ void sequential_sum_ass(uint384_t *a, uint384_t *b, uint384_t *c, int length) {
         :
         : "rax", "rdx", "memory"
     );
-}
-
-uint128_t simd_sum_32_ass(int length, uint64_t *low, uint64_t *high) {
-    uint128_t result = {0, 0};
-    uint64_t lowValue, highvalue;
-    asm volatile (
-        "vpxor %%ymm0, %%ymm0, %%ymm0\n"
-        "vpxor %%ymm1, %%ymm1, %%ymm1\n"
-        "1:\n"
-        "   vpxor %%ymm2, %%ymm2, %%ymm2\n"
-        "   vmovdqu (%[low]), %%ymm2\n"  
-        "   vpaddq %%ymm2, %%ymm0, %%ymm0\n"
-        "   vpxor %%ymm2, %%ymm2, %%ymm2\n"
-        "   vmovdqu (%[high]), %%ymm2\n"  
-        "   vpaddq %%ymm2, %%ymm1, %%ymm1\n"
-        "   add $32, %[low]\n"
-        "   add $32, %[high]\n"
-        "   sub $4, %[len]\n"
-        "   jg 1b\n"
-        "xor %%rax, %%rax\n"
-        "vextracti128 $1, %%ymm0, %%xmm0\n"
-        "pextrq $1, %%xmm0, %%rcx\n"
-        "addq %%rcx, %%rax\n"
-        "pextrq $0, %%xmm0, %%rcx\n"
-        "addq %%rcx, %%rax\n"
-        "vextracti128 $0, %%ymm0, %%xmm0\n"
-        "pextrq $1, %%xmm0, %%rcx\n"
-        "addq %%rcx, %%rax\n"
-        "pextrq $0, %%xmm0, %%rcx\n"
-        "addq %%rcx, %%rax\n"
-
-        "xor %%rbx, %%rbx\n"
-        "vextracti128 $1, %%ymm1, %%xmm0\n"
-        "pextrq $1, %%xmm0, %%rcx\n"
-        "addq %%rcx, %%rbx\n"
-        "pextrq $0, %%xmm0, %%rcx\n"
-        "addq %%rcx, %%rbx\n"
-        "vextracti128 $0, %%ymm1, %%xmm0\n"
-        "pextrq $1, %%xmm0, %%rcx\n"
-        "addq %%rcx, %%rbx\n"
-        "pextrq $0, %%xmm0, %%rcx\n"
-        "addq %%rcx, %%rbx\n"
-        
-        "movq %%rax, %[lowVal]\n"
-        "movq %%rbx, %[highVal]\n"
-        : [low]"+r" (low), [high]"+r" (high), [len] "+r" (length), [lowVal] "+m" (lowValue), [highVal] "+m" (highvalue) 
-        :
-        : "ymm0", "ymm1", "ymm2", "rax", "rbx", "rcx", "xmm0", "memory"
-    );
-    __uint128_t total = ((__uint128_t)(highvalue + (lowValue >> 32)) << 32) | lowValue & 0xFFFFFFFF;
-    result.low = (uint64_t)(total & 0xFFFFFFFFFFFFFFFF);
-    result.high = (uint64_t)(total >> 64);
-    return result;
 }
 
 void simd_sum_32_ass_v2(int length, uint384_t_v2 *upA, uint384_t_v2 *lowA, uint384_t_v2 *upB, uint384_t_v2 *lowB, uint384_t_v2 *upC, uint384_t_v2 *lowC,
