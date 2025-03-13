@@ -7,6 +7,7 @@
 #include "header/sum.h"
 #include "header/moltiplication.h"
 
+
 int main(int argc, char* argv[]) {
     uint384_t *a = malloc(SIZE * sizeof(uint384_t));
     uint384_t *b = malloc(SIZE * sizeof(uint384_t));

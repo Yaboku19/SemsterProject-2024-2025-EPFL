@@ -22,7 +22,7 @@ void printFunction384(char *functionName, double time, uint384_t *result) {
     printf("------------------------------------------- %*s%*s -------------------------------------------\n", padding + nameLength, functionName, padding, "");
     printf("- Time (abs): \t%.1f\n", time);
     printf("- Time (sec): \t%.4f\n", time / CLOCKS_PER_SEC);
-    for(int i = 0; i < 8; i ++) {
+    for(int i = 0; i < NUM_PRINT; i ++) {
         printf("- Result[%d]: \t0x%016lx", i, result[i].chunk[5]);
         for (int j = 4; j >= 0; j--) {
             printf("_%016lx", result[i].chunk[j]);
@@ -39,9 +39,12 @@ void printFunction384_v2(char *functionName, double time, four_uint384_t *upC, f
     printf("------------------------------------------- %*s%*s -------------------------------------------\n", padding + nameLength, functionName, padding, "");
     printf("- Time (abs): \t%.1f\n", time);
     printf("- Time (sec): \t%.4f\n", time / CLOCKS_PER_SEC);
-    for(int k = 0; k < 2; k ++) {
+    for(int k = 0; k < (NUM_PRINT / 4) + (NUM_PRINT % 4 == 0 ? 0 : 1); k ++) {
         for(int i = 0; i < 4; i ++) {
-            printf("Result[%d] = \t0x%08lx%08lx", i+k*4, upC[k].chunk[5].chunk[i], lowC[k].chunk[5].chunk[i]);
+            if (i+k*4 >= NUM_PRINT) {
+                break;
+            }
+            printf("- Result[%d] = \t0x%08lx%08lx", i+k*4, upC[k].chunk[5].chunk[i], lowC[k].chunk[5].chunk[i]);
             for(int j = 4; j > -1; j--) {
                 printf("_%08lx%08lx", upC[k].chunk[j].chunk[i], lowC[k].chunk[j].chunk[i]);
             }

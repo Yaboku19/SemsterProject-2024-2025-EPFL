@@ -2,19 +2,50 @@
 #include "../header/struct.h"
 #include <stdio.h>
 
-void normalSumTwoVariables384(uint384_t a, uint384_t b, uint384_t *c) {
-    for (int i = 0; i < 6; i++) {
-        uint64_t new_value = a.chunk[i] + b.chunk[i];
-        if(new_value < a.chunk[i] && i != 5) {
-            c->chunk[i+1] += 1;
+uint384_t primeNumber = {0xFFFFFFFFFFFFFec3, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 
+    0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF};
+void normalSumTwoVariables384(uint384_t a, uint384_t b, uint384_t *c, int mode);
+
+void checkModulo (uint384_t *num) {
+    for (int i = 5; i > -1; i--) {
+        if (num->chunk[i] < primeNumber.chunk[i]) {
+            break;
+        } else if (num->chunk[i] > primeNumber.chunk[i]) {
+            normalSumTwoVariables384(*num, primeNumber, num, 1);
+            break;
         }
-        c->chunk[i] += new_value;
     }
+}
+
+void normalSumTwoVariables384(uint384_t a, uint384_t b, uint384_t *c, int mode) {
+    if (mode == 0) {
+        for (int i = 0; i < 6; i++) {
+            uint64_t new_value = a.chunk[i] + b.chunk[i];
+            if(new_value < a.chunk[i] && i != 5) {
+                c->chunk[i+1] += 1;
+            }
+            c->chunk[i] += new_value;
+        }
+        checkModulo(c);
+    } else {
+        uint64_t carry = 0;
+        for (int i = 0; i < 6; i++) {
+            uint64_t new_value = a.chunk[i] - b.chunk[i] - carry;
+            if(new_value > a.chunk[i] && i != 5) {
+                carry = 1;
+            } else {
+                carry = 0;
+            }
+            c->chunk[i] = new_value;
+        }
+        checkModulo(c);
+    }
+
 }
 
 void normalSumArray384(uint384_t *a, uint384_t *b, uint384_t *c, int length) {
     for (int i = 0; i < length; i++) {
-        normalSumTwoVariables384(a[i], b[i], &c[i]);
+        normalSumTwoVariables384(a[i], b[i], &c[i], 0);
     }
 }
 

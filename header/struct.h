@@ -2,8 +2,9 @@
 #pragma once
 
 #define MULT_VALUE 10
-#define SIZE 8
+#define SIZE 100000
 #define SIZE_SIMD SIZE / 4 + (SIZE % 4 == 0 ? 0 : 1)
+#define NUM_PRINT 10
 
 typedef struct {
     uint64_t low;
@@ -21,4 +22,3 @@ typedef struct {
 typedef struct {
     uint256_t chunk[6];
 } four_uint384_t;
-
