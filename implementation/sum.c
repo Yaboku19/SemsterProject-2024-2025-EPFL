@@ -3,7 +3,8 @@
 #include <stdio.h>
 
 uint384_t primeNumber = {0xFFFFFFFFFFFFFec3, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 
-    0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF};
+    0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0x0FFFFFFFFFFFFFFF};
+
 void normalSumTwoVariables384(uint384_t a, uint384_t b, uint384_t *c, int mode);
 
 void checkModulo (uint384_t *num) {
@@ -76,19 +77,59 @@ void sequentialSumTwoVariables384_ass(uint384_t *a, uint384_t *b, uint384_t *c) 
         "   movq 40(%[a]), %%rax\n"
         "   adcq 40(%[b]), %%rax\n"
         "   movq %%rax, 40(%%rdx)\n"
-
-        "   addq $48, %[a]\n"
-        "   addq $48, %[b]\n"
-        "   addq $48, %[c]\n"
         : [a]"+r"(a), [b]"+r"(b), [c]"+r"(c)
         :
         : "rax", "rdx", "memory"
     );
+    checkModulo(c);
 }
 
 void sequentialSumArray384_ass(uint384_t *a, uint384_t *b, uint384_t *c, int length) {
     for (int i = 0; i < length; i++) {
         sequentialSumTwoVariables384_ass(&a[i], &b[i], &c[i]);
+    }
+}
+
+void checkFourModulo (uint256_t *up, uint256_t *low) ;
+
+void subModulo (uint256_t *up, uint256_t *low, int *indexes) {
+    for (int j = 0; j < 4; j++) {
+        if (indexes[j] == -1) {
+            break;
+        }
+        uint64_t carry = 0;
+        for (int i = 0; i < 6; i++) {
+            uint64_t num = ((up[i].chunk[indexes[j]] << 32) + low[i].chunk[indexes[j]]);
+            uint64_t new_value = num - primeNumber.chunk[i] - carry;
+            if(new_value > num && i != 5) {
+                carry = 1;
+            } else {
+                carry = 0;
+            }
+            up[i].chunk[indexes[j]] = new_value >> 32;
+            low[i].chunk[indexes[j]] = new_value & 0xFFFFFFFF;
+        }
+    }
+    checkFourModulo(up, low);
+}
+
+void checkFourModulo (uint256_t *up, uint256_t *low) {
+    int indexes[4] = {-1, -1, -1, -1};
+    int index = 0;
+    for (int j = 0; j < 4; j++) {
+        for (int i = 5; i > -1; i--) {
+            uint64_t num = (up[i].chunk[j] << 32) + low[i].chunk[j];
+            if (num < primeNumber.chunk[i]) {
+                break;
+            } else if (num > primeNumber.chunk[i]) {
+                indexes[index] = j;
+                index++;
+                break;
+            }
+        }
+    }
+    if (indexes[0] != -1) {
+        subModulo(up, low, indexes);
     }
 }
 
@@ -131,12 +172,14 @@ void simdTwoVariables384_ass(uint256_t *upA, uint256_t *lowA, uint256_t *upB, ui
 
         "dec %%rcx\n"                       // decrement counter
         "jge 1b\n"                          // if not zero, loop again
+        "sub $224, %[lowC]\n"
+        "sub $224, %[upC]\n"
         : [upA]"+r" (upA), [lowA]"+r" (lowA), [upB]"+r" (upB), [lowB]"+r" (lowB), 
         [upC]"+r" (upC), [lowC]"+r" (lowC), [upMask]"+r" (upMask), [lowMask]"+r" (lowMask)
         :
         : "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "rcx", "rax", "rbx", "memory"
     );
-
+    checkFourModulo(upC, lowC);
 }
 
 void simdSumArray384_ass(int length, four_uint384_t *upA, four_uint384_t *lowA, four_uint384_t *upB, four_uint384_t *lowB, 
@@ -151,4 +194,13 @@ certification:
 - OCP / oldCP? (expensive 2k)
 - CPTF (400) hack the box
 - do more CTF
+*/
+/*
+1111111 -
+0100100 =
+--------
+1011011 -
+0100100 =
+--------
+0010011
 */
