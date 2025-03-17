@@ -4,11 +4,14 @@
 #include <time.h>
 #include <string.h>
 
+#define DASHES 39
+
 void printFunction128(char *functionName, double time, uint128_t num) {
-    int totalWidth = 15;
-    int nameLength = strlen(functionName);
-    int padding = (totalWidth - nameLength) / 2;
-    printf("-------------------------------- %*s%*s --------------------------------\n", padding + nameLength, functionName, padding, "");
+    char dash[DASHES+1] = "";
+    for (int i = 0; i < DASHES; i++) {
+        dash[i] = '-';
+    }
+    printf("%s \t[ %s ]\t %s\n", dash, functionName, dash);
     printf("- Time (abs): \t%.1f\n", time);
     printf("- Time (sec): \t%.4f\n", time / CLOCKS_PER_SEC);
     printf("- Result: \t0x%016lx_%016lx", num.high, num.low);
@@ -16,10 +19,13 @@ void printFunction128(char *functionName, double time, uint128_t num) {
 }
 
 void printFunction384(char *functionName, double time, uint384_t *result) {
-    int totalWidth = 15;
-    int nameLength = strlen(functionName);
-    int padding = (totalWidth - nameLength) / 2;
-    printf("------------------------------------------- %*s%*s -------------------------------------------\n", padding + nameLength, functionName, padding, "");
+    char dash[DASHES+1] = "";
+    for (int i = 0; i < DASHES; i++) {
+        dash[i] = '-';
+    }
+    printf("%s \t[ %s ]", dash, functionName);
+    printf(strlen(functionName) > 20 ? "\t" : "\t\t");
+    printf("%s\n", dash);
     printf("- Time (abs): \t%.1f\n", time);
     printf("- Time (sec): \t%.4f\n", time / CLOCKS_PER_SEC);
     for(int i = 0; i < NUM_PRINT; i ++) {
@@ -33,10 +39,13 @@ void printFunction384(char *functionName, double time, uint384_t *result) {
 }
 
 void printFunction384_v2(char *functionName, double time, four_uint384_t *upC, four_uint384_t *lowC) {
-    int totalWidth = 15;
-    int nameLength = strlen(functionName);
-    int padding = (totalWidth - nameLength) / 2;
-    printf("------------------------------------------- %*s%*s -------------------------------------------\n", padding + nameLength, functionName, padding, "");
+    char dash[DASHES+1] = "";
+    for (int i = 0; i < DASHES; i++) {
+        dash[i] = '-';
+    }
+    printf("%s \t[ %s ]", dash, functionName);
+    printf(strlen(functionName) > 20 ? "\t" : "\t\t");
+    printf("%s\n", dash);
     printf("- Time (abs): \t%.1f\n", time);
     printf("- Time (sec): \t%.4f\n", time / CLOCKS_PER_SEC);
     for(int k = 0; k < (NUM_PRINT / 4) + (NUM_PRINT % 4 == 0 ? 0 : 1); k ++) {

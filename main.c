@@ -61,17 +61,20 @@ int main(int argc, char* argv[]) {
     generate_number_384_v2(lowA, SIZE_SIMD, a, 1);
     generate_number_384_v2(upC, SIZE_SIMD, NULL, 2);
     generate_number_384_v2(lowC, SIZE_SIMD, NULL, 2);
-    // /* Creation of the masks */
+    /* Creation of the masks */
     uint256_t upMask = {0xFFFFFFFF00000000, 0xFFFFFFFF00000000, 0xFFFFFFFF00000000, 0xFFFFFFFF00000000};
     uint256_t lowMask = {0x00000000FFFFFFFF, 0x00000000FFFFFFFF, 0x00000000FFFFFFFF,0x00000000FFFFFFFF};
-    // /* Run new simd sum */
+    /* Run new simd sum */
     start = clock();
     simdSumArray384_ass(SIZE_SIMD, upA, lowA, upB, lowB, upC, lowC, &upMask, &lowMask);
     end = clock();
     printFunction384_v2("SimdSumArray384_ass", (double) end - start, upC, lowC);
-
+    /* Resetting c */
+    generate_number_384_v2(upC, SIZE_SIMD, NULL, 2);
+    generate_number_384_v2(lowC, SIZE_SIMD, NULL, 2);
     free(a);
     free(b);
+    
     return 0;
 }
 
