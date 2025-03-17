@@ -77,9 +77,9 @@ int main(int argc, char* argv[]) {
     }
     /* Run of tradtional moltiplication over 384 vector. */    
     start = clock();
-    fast_384_multiplication(a, b, c, SIZE);
+    mul384(a, b, c, SIZE);
     end = clock();
-    printFunction384("fast_384_multiplication", (double)(end - start), c);
+    printFunction384("mul384", (double)(end - start), c);
     /* Resetting c. */
     for (int i = 0; i < SIZE; i++) {
         for (int j = 0; j < 6; j++) {
@@ -87,9 +87,9 @@ int main(int argc, char* argv[]) {
         }
     }
     start = clock();
-    multiplication384_kar(a, b, c, SIZE);
+    mul384Fast(a, b, c, SIZE);
     end = clock();
-    printFunction384("multiplication384_kar", (double)(end - start), c);
+    printFunction384("mul384Fast", (double)(end - start), c);
     /* Free memory*/
     free(a);
     free(b);

@@ -177,7 +177,7 @@ void simdTwoVariables384_ass(uint256_t *upA, uint256_t *lowA, uint256_t *upB, ui
         : [upA]"+r" (upA), [lowA]"+r" (lowA), [upB]"+r" (upB), [lowB]"+r" (lowB), 
         [upC]"+r" (upC), [lowC]"+r" (lowC), [upMask]"+r" (upMask), [lowMask]"+r" (lowMask)
         :
-        : "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "rcx", "rax", "rbx", "memory"
+        : "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "rcx", "memory"
     );
     checkFourModulo(upC, lowC);
 }
