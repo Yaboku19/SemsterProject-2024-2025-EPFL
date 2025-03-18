@@ -90,6 +90,14 @@ int main(int argc, char* argv[]) {
     mul384Fast(a, b, c, SIZE);
     end = clock();
     printFunction384("mul384Fast", (double)(end - start), c);
+    /* Resetting c*/
+    generate_number_384_v2(upC, SIZE_SIMD, NULL, 2);
+    generate_number_384_v2(lowC, SIZE_SIMD, NULL, 2);
+    /**/
+    start = clock();
+    mul384Simd_ass(lowA, upA, lowB, upB, lowC, upC, &upMask, &lowMask, SIZE_SIMD);
+    end = clock();
+    printFunction384_v2("mul384Simd_ass", (double) end - start, upC, lowC);
     /* Free memory*/
     free(a);
     free(b);

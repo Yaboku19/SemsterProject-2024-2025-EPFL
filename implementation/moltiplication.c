@@ -55,15 +55,15 @@ void mul384Fast(uint384_t *a, uint384_t *b, uint384_t *c, int length) {
     }
 }
 
-void mul384Simd_two_variables_ass (uint256_t *a, uint256_t *b, uint256_t *lowC, uint256_t *upC, uint256_t *upMask, uint256_t *lowMask) {
-    uint256_t tempArray[24] = {0};
-    uint256_t *temp = tempArray;
+void mul384Simd_two_variables_ass (uint256_t *a, uint256_t *b, uint256_t *upC, uint256_t *lowC, uint256_t *upMask, uint256_t *lowMask) {
+    uint256_t tempArray[12] = {0};
+    uint256_t *temp = &tempArray[0];
     asm volatile (
         "vmovdqu (%[lowMask]), %%ymm4\n"    // ymm4 for lowMask
         "vmovdqu (%[upMask]), %%ymm5\n"     // ymm5 for upMask
         "mov $12, %%rax\n"                  // loop of 12
     "1:\n"
-        "mov $12, %%rbx\n"                  // loop of 12
+        "mov %%rax, %%rbx\n"                // loop of 12
         "vmovdqu (%[b]), %%ymm1\n"          // second operand in ymm1
         "vpxor %%ymm6, %%ymm6, %%ymm6\n"    // ymm6 for rest
     "2:\n"
@@ -83,22 +83,34 @@ void mul384Simd_two_variables_ass (uint256_t *a, uint256_t *b, uint256_t *lowC, 
         "add $32, %[temp]\n"                // new pointer for b
 
         "dec %%rbx\n"                       // decrement counter
-        "jge 2b\n"                          // if not zero, loop again
+        "jg 2b\n"                          // if not zero, loop again
 
-        "sub $384, %[a]\n"                  // resetting a
-        "sub $352, %[temp]\n"               // resetting temp
+        "mov %%rax, %%rcx\n"
+        "imul $32, %%rcx\n"
+
+        "sub %%rcx, %[a]\n"                 // resetting a
+        "sub %%rcx, %[temp]\n"              // resetting temp
+        "add $32, %[temp]\n"
         "add $32, %[b]\n"                   // new pointer b
 
         "dec %%rax\n"                       // decrement counter
-        "jge 1b\n"                          // if not zero, loop again
+        "jg 1b\n"                          // if not zero, loop again
 
         "sub $384, %[b]\n"                  // resetting b
         "sub $384, %[temp]\n"               // resetting temp
         : [a]"+r" (a), [b]"+r" (b), [upC]"+r" (upC), [lowC]"+r" (lowC), [upMask]"+r" (upMask), [lowMask]"+r" (lowMask)
         , [temp] "+r" (temp)
         :
-        : "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "rax", "rbx", "memory"
+        : "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "rax", "rbx", "rcx", "memory"
     );
+    for (int i = 0; i < 12; i ++) {
+        if (i % 2 == 0) {
+            lowC[i / 2] = temp[i];
+        } else {
+            upC[i / 2] = temp[i];
+        }
+    }
+    checkFourModulo384(upC, lowC);
 }
 
 void mul384Simd_ass(four_uint384_t *lowA, four_uint384_t *upA, four_uint384_t *lowB, four_uint384_t *upB,
