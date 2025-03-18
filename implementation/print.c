@@ -23,7 +23,9 @@ void printFunction384(char *functionName, double time, uint384_t *result) {
     for (int i = 0; i < DASHES; i++) {
         dash[i] = '-';
     }
-    printf("%s \t[ %s ]", dash, functionName);
+    printf("%s ", dash);
+    printf(strlen(functionName) > 10 ? "\t" : "\t\t");
+    printf("[ %s ]", functionName);
     printf(strlen(functionName) > 20 ? "\t" : "\t\t");
     printf("%s\n", dash);
     printf("- Time (abs): \t%.1f\n", time);
@@ -43,7 +45,9 @@ void printFunction384_v2(char *functionName, double time, four_uint384_t *upC, f
     for (int i = 0; i < DASHES; i++) {
         dash[i] = '-';
     }
-    printf("%s \t[ %s ]", dash, functionName);
+    printf("%s ", dash);
+    printf(strlen(functionName) > 10 ? "\t" : "\t\t");
+    printf("[ %s ]", functionName);
     printf(strlen(functionName) > 20 ? "\t" : "\t\t");
     printf("%s\n", dash);
     printf("- Time (abs): \t%.1f\n", time);

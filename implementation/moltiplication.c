@@ -1,6 +1,7 @@
 #include "../header/moltiplication.h"
 #include "../header/struct.h"
 #include <stdio.h>
+#include "../header/modulo.h"
 
 void mul384_two_variables(const uint384_t *a, const uint384_t *b, uint384_t *c) {
     __uint128_t temp[6] = {0};
@@ -18,6 +19,7 @@ void mul384_two_variables(const uint384_t *a, const uint384_t *b, uint384_t *c) 
     for (int i = 0; i < 6; i++) {
         c->chunk[i] = temp[i];
     }
+    checkModulo384(c);
 }
 
 void mul384(uint384_t *a, uint384_t *b, uint384_t *c, int length) {
@@ -44,6 +46,7 @@ void mul384Fast_two_variables_kar(const uint384_t *a, const uint384_t *b, uint38
     for (int i = 0; i < 6; i++) {
         c->chunk[i] = res[i];
     }
+    checkModulo384(c);
 }
 
 void mul384Fast(uint384_t *a, uint384_t *b, uint384_t *c, int length) {
@@ -74,7 +77,7 @@ void mul384Simd_two_variables_ass (uint256_t *a, uint256_t *b, uint256_t *lowC, 
         "vpand %%ymm0, %%ymm5, %%ymm6\n"    // and with upMask
         "vpsrlq $32, %%ymm6, %%ymm6\n"      // new rest
         "vpand %%ymm0, %%ymm4, %%ymm0\n"    // and with lowerMap
-        "vmovdqu %%ymm0, (%[temp])\n"       // back in lowC
+        "vmovdqu %%ymm0, (%[temp])\n"       // back in temp
 
         "add $32, %[a]\n"                   // new pointer for a
         "add $32, %[temp]\n"                // new pointer for b
