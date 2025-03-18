@@ -68,7 +68,7 @@ int main(int argc, char* argv[]) {
     generate_number_384_v2(upC, SIZE_SIMD, NULL, 2);
     generate_number_384_v2(lowC, SIZE_SIMD, NULL, 2);
     // Moltiplication
-    printf("\n-------------------------------------------------- [ Moltiplication ] -------------------------------------------------\n\n");
+    printf("-------------------------------------------------- [ Moltiplication ] -------------------------------------------------\n\n");
     /* Resetting c. */
     for (int i = 0; i < SIZE; i++) {
         for (int j = 0; j < 6; j++) {

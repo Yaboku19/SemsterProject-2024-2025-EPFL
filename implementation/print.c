@@ -37,7 +37,7 @@ void printFunction384(char *functionName, double time, uint384_t *result) {
         }
         printf("\n");
     }
-
+    printf("\n");
 }
 
 void printFunction384_v2(char *functionName, double time, four_uint384_t *upC, four_uint384_t *lowC) {
@@ -64,4 +64,5 @@ void printFunction384_v2(char *functionName, double time, four_uint384_t *upC, f
             printf("\n");
         }
     }
+    printf("\n");
 }
