@@ -1,8 +1,8 @@
 CC = gcc
 CFLAGS = -g -mavx2 -O2 -mavx512f -mavx512dq
 TARGET = main.o
-SRC = main.c implementation/print.c implementation/generation.c implementation/sum.c implementation/moltiplication.c implementation/modulo.c
-HEADERS = header/struct.h header/print.h header/generation.h header/sum.h header/moltiplication.h header/modulo.h
+SRC = main.c implementation/print.c implementation/generation.c implementation/sum.c implementation/multiplication.c implementation/modulo.c
+HEADERS = header/struct.h header/print.h header/generation.h header/sum.h header/multiplication.h header/modulo.h
 
 all: $(TARGET)
 

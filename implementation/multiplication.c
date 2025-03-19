@@ -1,4 +1,4 @@
-#include "../header/moltiplication.h"
+#include "../header/multiplication.h"
 #include "../header/struct.h"
 #include <stdio.h>
 #include "../header/modulo.h"

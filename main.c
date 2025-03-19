@@ -5,7 +5,7 @@
 #include "header/print.h"
 #include "header/generation.h"
 #include "header/sum.h"
-#include "header/moltiplication.h"
+#include "header/multiplication.h"
 
 int main(int argc, char* argv[]) {
     /* Creation of all the memory needed */
