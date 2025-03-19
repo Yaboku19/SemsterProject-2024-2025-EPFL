@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include "../header/modulo.h"
 
 uint64_t generate_random_64bit2() {
     uint64_t high = (uint64_t)rand() << 32;
@@ -16,6 +17,7 @@ void generate_large_number384(uint384_t *num, int length) {
         for (int j = 0; j < 6; j++) {
             num[i].chunk[j] = generate_random_64bit2();
         }
+        checkModulo384(&num[i]);
     }
 }
 
