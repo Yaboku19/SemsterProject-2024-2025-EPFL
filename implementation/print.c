@@ -5,6 +5,7 @@
 #include <string.h>
 
 #define DASHES 39
+#define FOR_SEC 1000000000.0
 
 void printFunction128(char *functionName, double time, uint128_t num) {
     char dash[DASHES+1] = "";
@@ -12,8 +13,8 @@ void printFunction128(char *functionName, double time, uint128_t num) {
         dash[i] = '-';
     }
     printf("%s \t[ %s ]\t %s\n", dash, functionName, dash);
-    printf("- Time (abs): \t%.1f\n", time);
-    printf("- Time (sec): \t%.4f\n", time / CLOCKS_PER_SEC);
+    printf("- Time (abs): \t%.0f\n", time);
+    printf("- Time (sec): \t%.6f\n", time / FOR_SEC);
     printf("- Result: \t0x%016lx_%016lx", num.high, num.low);
     printf("\n");
 }
@@ -28,8 +29,8 @@ void printFunction384(char *functionName, double time, uint384_t *result) {
     printf("[ %s ]", functionName);
     printf(strlen(functionName) > 20 ? "\t" : "\t\t");
     printf("%s\n", dash);
-    printf("- Time (abs): \t%.1f\n", time);
-    printf("- Time (sec): \t%.4f\n", time / CLOCKS_PER_SEC);
+    printf("- Time (abs): \t%.0f\n", time);
+    printf("- Time (sec): \t%.6f\n", time / FOR_SEC);
     for(int i = 0; i < NUM_PRINT; i ++) {
         printf("- Result[%d]: \t0x%016lx", i, result[i].chunk[5]);
         for (int j = 4; j >= 0; j--) {
@@ -50,8 +51,8 @@ void printFunction384_v2(char *functionName, double time, four_uint384_t *upC, f
     printf("[ %s ]", functionName);
     printf(strlen(functionName) > 20 ? "\t" : "\t\t");
     printf("%s\n", dash);
-    printf("- Time (abs): \t%.1f\n", time);
-    printf("- Time (sec): \t%.4f\n", time / CLOCKS_PER_SEC);
+    printf("- Time (abs): \t%.0f\n", time);
+    printf("- Time (sec): \t%.6f\n", time / FOR_SEC);
     for(int k = 0; k < (NUM_PRINT / 4) + (NUM_PRINT % 4 == 0 ? 0 : 1); k ++) {
         for(int i = 0; i < 4; i ++) {
             if (i+k*4 >= NUM_PRINT) {

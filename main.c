@@ -7,7 +7,6 @@
 #include "header/sum.h"
 #include "header/moltiplication.h"
 
-
 int main(int argc, char* argv[]) {
     /* Creation of all the memory needed */
     uint384_t *a = malloc(SIZE * sizeof(uint384_t));
@@ -44,10 +43,11 @@ int main(int argc, char* argv[]) {
     // Sums
     printf("------------------------------------------------------- [ SUM ] -------------------------------------------------------\n\n");
     /* Run of normalSumArray384 over 384 vector. */
-    clock_t start = clock();
+    struct timespec start, end;
+    clock_gettime(CLOCK_MONOTONIC, &start);
     normalSumArray384(a, b, c, SIZE);
-    clock_t end = clock();
-    printFunction384("NormalSumArray384", (double)(end - start), c);
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    printFunction384("NormalSumArray384", (double)(end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec), c);
     /* Resetting c. */
     for (int i = 0; i < SIZE; i++) {
         for (int j = 0; j < 6; j++) {
@@ -55,15 +55,15 @@ int main(int argc, char* argv[]) {
         }
     }
     /* Run of sequentialSumArray384 over 384 vector. */
-    start = clock();
+    clock_gettime(CLOCK_MONOTONIC, &start);
     sequentialSumArray384_ass(a, b, c, SIZE);
-    end = clock();
-    printFunction384("SequentialSumArray384_ass", (double)(end - start), c);
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    printFunction384("SequentialSumArray384_ass", (double)(end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec), c);
     /* Run new simd sum */
-    start = clock();
+    clock_gettime(CLOCK_MONOTONIC, &start);
     simdSumArray384_ass(SIZE_SIMD, upA, lowA, upB, lowB, upC, lowC, &upMask, &lowMask);
-    end = clock();
-    printFunction384_v2("SimdSumArray384_ass", (double) end - start, upC, lowC);
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    printFunction384_v2("SimdSumArray384_ass", (double)(end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec), upC, lowC);
     /* Resetting c */
     generate_number_384_v2(upC, SIZE_SIMD, NULL, 2);
     generate_number_384_v2(lowC, SIZE_SIMD, NULL, 2);
@@ -76,28 +76,28 @@ int main(int argc, char* argv[]) {
         }
     }
     /* Run of tradtional moltiplication over 384 vector. */    
-    start = clock();
+    clock_gettime(CLOCK_MONOTONIC, &start);
     mul384(a, b, c, SIZE);
-    end = clock();
-    printFunction384("mul384", (double)(end - start), c);
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    printFunction384("mul384", (double)(end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec), c);
     /* Resetting c. */
     for (int i = 0; i < SIZE; i++) {
         for (int j = 0; j < 6; j++) {
             c[i].chunk[j] = 0x0;
         }
     }
-    start = clock();
+    clock_gettime(CLOCK_MONOTONIC, &start);
     mul384Fast(a, b, c, SIZE);
-    end = clock();
-    printFunction384("mul384Fast", (double)(end - start), c);
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    printFunction384("mul384Fast", (double)(end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec), c);
     /* Resetting c*/
     generate_number_384_v2(upC, SIZE_SIMD, NULL, 2);
     generate_number_384_v2(lowC, SIZE_SIMD, NULL, 2);
     /**/
-    start = clock();
+    clock_gettime(CLOCK_MONOTONIC, &start);
     mul384Simd_ass(lowA, upA, lowB, upB, lowC, upC, &upMask, &lowMask, SIZE_SIMD);
-    end = clock();
-    printFunction384_v2("mul384Simd_ass", (double) end - start, upC, lowC);
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    printFunction384_v2("mul384Simd_ass", (double)(end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec), upC, lowC);
     /* Free memory*/
     free(a);
     free(b);
