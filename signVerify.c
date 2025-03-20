@@ -4,6 +4,8 @@
 #include "blst.h"
 #include <string.h>
 #include <stdbool.h>
+#include "header/struct.h"
+#include "header/generation.h"
 
 #define DST "BLS_SIG_DST" 
 
@@ -25,10 +27,12 @@ void generateKeys (blst_scalar *sk, uint8_t *pk_bytes, blst_p1_affine *pk_affine
     pk_bytes[0] &= ~0x20;
 }
 
-void signMessage (blst_scalar sk, blst_p2_affine *sig_affine, uint8_t *sig_bytes, char *message) {
+void signMessage (blst_scalar sk, blst_p2_affine *sig_affine, uint8_t *sig_bytes, uint384_t *message) {
+    uint8_t msg_bytes[48];
+    memcpy(msg_bytes, message->chunk, 48);
     // Hash the message to G2
     blst_p2 msg_point;
-    blst_hash_to_g2(&msg_point, (uint8_t *)message, strlen(message), (uint8_t *)DST, strlen(DST), NULL, 0);
+    blst_hash_to_g2(&msg_point, msg_bytes, sizeof(msg_bytes), (uint8_t *)DST, strlen(DST), NULL, 0);
 
     // Sign the hashed message
     blst_p2 signature;
@@ -47,10 +51,12 @@ void signMessage (blst_scalar sk, blst_p2_affine *sig_affine, uint8_t *sig_bytes
     }
 }
 
-int verifyMessage (blst_p1_affine pk_affine, blst_p2_affine sig_affine, char *message) {
+int verifyMessage (blst_p1_affine pk_affine, blst_p2_affine sig_affine, uint384_t *message) {
+    uint8_t msg_bytes[48];
+    memcpy(msg_bytes, message->chunk, 48);
     // First, try direct verification with blst_core_verify_pk_in_g1
     BLST_ERROR verify_result = blst_core_verify_pk_in_g1(
-        &pk_affine, &sig_affine, true, (uint8_t *)message, strlen(message),
+        &pk_affine, &sig_affine, true, msg_bytes, sizeof(msg_bytes),
         (uint8_t *)DST, strlen(DST), NULL, 0
     );
 
@@ -66,7 +72,7 @@ int verifyMessage (blst_p1_affine pk_affine, blst_p2_affine sig_affine, char *me
     }
 
     blst_pairing_init(pairing, true, (uint8_t *)DST, strlen(DST));
-    blst_pairing_aggregate_pk_in_g1(pairing, &pk_affine, &sig_affine, (uint8_t *)message, strlen(message), NULL, 0);
+    blst_pairing_aggregate_pk_in_g1(pairing, &pk_affine, &sig_affine, msg_bytes, sizeof(msg_bytes), NULL, 0);
     blst_pairing_commit(pairing);
     int valid = blst_pairing_finalverify(pairing, NULL);
     free(pairing);
@@ -80,14 +86,19 @@ int main() {
     blst_p1_affine pk_affine;
     blst_p2_affine sig_affine;
     uint8_t sig_bytes[192];
-    char message[] = "He, BLS!";
+    uint384_t msg;
+    generate_large_number384(&msg, 1);
 
     generateKeys(&sk, pk_bytes, &pk_affine);
-    signMessage(sk, &sig_affine, sig_bytes, message);
-    int valid = verifyMessage(pk_affine, sig_affine, message);
+    signMessage(sk, &sig_affine, sig_bytes, &msg);
+    int valid = verifyMessage(pk_affine, sig_affine, &msg);
 
     // Output Results
-    printf("message: %s\n", message);
+    printf("message: 0x%016lx", msg.chunk[5]);
+    for(int i = 4; i > -1; i--) {
+        printf("_%016lx", msg.chunk[i]);
+    }
+    printf("\n");
     printf("Private Key (hex): ");
     for (int i = 0; i < sizeof(sk.b); i++) {
         printf("%02x", sk.b[i]);
@@ -114,15 +125,3 @@ int main() {
 
     return 0;
 }
-
-
-
-// int main () {
-//     uint384_t msg;
-//     generate_large_number384(&msg, 1);
-//     printf("msg = \t0x%016lx", msg.chunk[5]);
-//     for(int i = 4; i > -1; i--) {
-//         printf("_%016lx", msg.chunk[i]);
-//     }
-//     printf("\n");
-// }
