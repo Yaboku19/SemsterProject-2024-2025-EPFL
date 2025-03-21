@@ -76,53 +76,73 @@ int main() {
     blst_p1_affine a_pk_affine, b_pk_affine;
     blst_p2_affine a_sig_affine, b_sig_affine;
     uint8_t a_sig_bytes[192], b_sig_bytes[192];
-    uint384_t a, b;
-    uint8_t a_bytes[48], b_bytes[48];
-    memcpy(a_bytes, a.chunk, 48);
-    memcpy(b_bytes, b.chunk, 48);
+    uint384_t msg_a, msg_b;
+    uint8_t msg_a_bytes[48], msg_b_bytes[48];
+    generate_large_number384(&msg_a, 1);
+    generate_large_number384(&msg_b, 1);
+    memcpy(msg_a_bytes, msg_a.chunk, 48);
+    memcpy(msg_b_bytes, msg_b.chunk, 48);
     int a_valid, b_valid;
-    generate_large_number384(&a, 1);
-    generate_large_number384(&b, 1);
-
+    
     generateKeys(&a_sk, a_pk_bytes, &a_pk_affine);
     generateKeys(&b_sk, b_pk_bytes, &b_pk_affine);
-    signMessage(a_sk, &a_sig_affine, a_sig_bytes, a_bytes);
-    signMessage(b_sk, &b_sig_affine, b_sig_bytes, b_bytes);
-    a_valid = verifyMessage(a_pk_affine, a_sig_affine, a_bytes);
-    b_valid = verifyMessage(b_pk_affine, b_sig_affine, b_bytes);
-
-    uint8_t agg_msg[96]; // 48 bytes per ciascun messaggio
-    memcpy(agg_msg, a_bytes, 48);
-    memcpy(agg_msg + 48, b_bytes, 48);
+    signMessage(a_sk, &a_sig_affine, a_sig_bytes, msg_a_bytes);
+    signMessage(b_sk, &b_sig_affine, b_sig_bytes, msg_b_bytes);
+    a_valid = verifyMessage(a_pk_affine, a_sig_affine, msg_a_bytes);
+    b_valid = verifyMessage(b_pk_affine, b_sig_affine, msg_b_bytes);
 
     // Aggregazione delle firme
     blst_p2 agr_sig;
-    blst_p2_add_or_double(&agr_sig, (blst_p2 *)&a_sig_affine, (blst_p2 *)&b_sig_affine);
     blst_p2_affine agr_sig_affine;
+    blst_p2 a_sig_proj, b_sig_proj;
+    blst_p2_from_affine(&a_sig_proj, &a_sig_affine);
+    blst_p2_from_affine(&b_sig_proj, &b_sig_affine);
+    blst_p2_add_or_double(&agr_sig, &a_sig_proj, &b_sig_proj);
     blst_p2_to_affine(&agr_sig_affine, &agr_sig);
-    
+
     // Aggregazione delle chiavi pubbliche
     blst_p1 agr_pk;
-    blst_p1_add_or_double(&agr_pk, (blst_p1 *)&a_pk_affine, (blst_p1 *)&b_pk_affine);
     blst_p1_affine agr_pk_affine;
+    blst_p1 a_pk_proj, b_pk_proj;
+    blst_p1_from_affine(&a_pk_proj, &a_pk_affine);
+    blst_p1_from_affine(&b_pk_proj, &b_pk_affine);
+    blst_p1_add_or_double(&agr_pk, &a_pk_proj, &b_pk_proj);
     blst_p1_to_affine(&agr_pk_affine, &agr_pk);
 
-    // Verifica della firma aggregata
-    int agr_valid = verifyMessage(agr_pk_affine, agr_sig_affine, agg_msg);
+    // // Verifica della firma aggregata
+    uint8_t msg_agr_bytes[96];
+    memcpy(msg_agr_bytes, msg_a_bytes, 48);
+    memcpy(msg_agr_bytes + 48, msg_b_bytes, 48);
+    int agr_valid = verifyMessage(agr_pk_affine, agr_sig_affine, msg_agr_bytes);
 
-
-    // Output Results
-    printf("a: \t\t0x%016lx", a.chunk[5]);
+    printf("----------------------------------------------------- [ messages ] -----------------------------------------------------\n");
+    printf("a: \t\t\t%016lx", msg_a.chunk[5]);
     for(int i = 4; i > -1; i--) {
-        printf("_%016lx", a.chunk[i]);
+        printf("_%016lx", msg_a.chunk[i]);
     }
     printf("\n\n");
-    printf("b: \t\t0x%016lx", b.chunk[5]);
+    printf("b: \t\t\t%016lx", msg_b.chunk[5]);
     for(int i = 4; i > -1; i--) {
-        printf("_%016lx", b.chunk[i]);
+        printf("_%016lx", msg_b.chunk[i]);
     }
     printf("\n\n");
-
+    printf("----------------------------------------------------- [ messages_bytes ] -----------------------------------------------------\n");
+    printf("message a(hex): \t");
+    for (int i = 0; i < sizeof(msg_a_bytes); i++) {
+        printf("%02x", msg_a_bytes[i]);
+    }
+    printf("\n\n");
+    printf("message b(hex): \t");
+    for (int i = 0; i < sizeof(msg_b_bytes); i++) {
+        printf("%02x", msg_b_bytes[i]);
+    }
+    printf("\n\n");
+    printf("message agr(hex): \t");
+    for (int i = 0; i < sizeof(msg_agr_bytes); i++) {
+        printf("%02x", msg_agr_bytes[i]);
+    }
+    printf("\n\n");
+    printf("----------------------------------------------------- [ private key ] -----------------------------------------------------\n");
     printf("Private Key a(hex): \t");
     for (int i = 0; i < sizeof(a_sk.b); i++) {
         printf("%02x", a_sk.b[i]);
@@ -133,7 +153,7 @@ int main() {
         printf("%02x", b_sk.b[i]);
     }
     printf("\n\n");
-
+    printf("----------------------------------------------------- [ public key ] -----------------------------------------------------\n");
     printf("Public Key a(hex): \t");
     for (int i = 0; i < 96; i++) {
         printf("%02x", a_pk_bytes[i]);
@@ -144,13 +164,14 @@ int main() {
         printf("%02x", b_pk_bytes[i]);
     }
     printf("\n\n");
-    printf("Aggr Public Key (hex): \t");
-    uint8_t agg_pk_bytes[96];
-    blst_p1_serialize(agg_pk_bytes, &agr_pk);
+    printf("Public Key agr(hex): \t");
+    uint8_t agr_pk_bytes[96];
+    blst_p1_serialize(agr_pk_bytes, &agr_pk);
     for (int i = 0; i < 96; i++) {
-        printf("%02x", agg_pk_bytes[i]);
+        printf("%02x", agr_pk_bytes[i]);
     }
     printf("\n\n");
+    printf("----------------------------------------------------- [ signature ] -----------------------------------------------------\n");
     printf("Signature a(hex): \t");
     for (int i = 0; i < 192; i++) {
         printf("%02x", a_sig_bytes[i]);
@@ -161,28 +182,31 @@ int main() {
         printf("%02x", b_sig_bytes[i]);
     }
     printf("\n\n");
-    printf("Aggr Signature (hex): \t");
-    uint8_t agg_sig_bytes[192];
-    blst_p2_serialize(agg_sig_bytes, &agr_sig);
+    printf("Signature agr(hex): \t");
+    uint8_t agr_sig_bytes[192];
+    blst_p2_serialize(agr_sig_bytes, &agr_sig);
     for (int i = 0; i < 192; i++) {
-        printf("%02x", agg_sig_bytes[i]);
+        printf("%02x", agr_sig_bytes[i]);
     }
     printf("\n\n");
-
+    printf("----------------------------------------------------- [ validation ] -----------------------------------------------------\n");
     if (a_valid) {
-        printf("Signature a is VALID ✅\n");
+        printf("Signature a is VALID ✅");
     } else {
-        printf("Signature a is INVALID ❌\n");
+        printf("Signature a is INVALID ❌");
     }
+    printf("\n\n");
     if (b_valid) {
-        printf("Signature b is VALID ✅\n");
+        printf("Signature b is VALID ✅");
     } else {
-        printf("Signature b is INVALID ❌\n");
+        printf("Signature b is INVALID ❌");
     }
+    printf("\n\n");
     if (agr_valid) {
-        printf("Aggr Signature is VALID ✅\n");
+        printf("Signature agr is VALID ✅");
     } else {
-        printf("Aggr Signature is INVALID ❌\n");
+        printf("Signature agr is INVALID ❌");
     }
+    printf("\n");
     return 0;
 }
