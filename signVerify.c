@@ -69,12 +69,30 @@ int verifyMessage (blst_p1_affine pk_affine, blst_p2_affine sig_affine, uint8_t 
     return valid;
 }
 
+void aggrSignatures (blst_p2 *agr_sig, blst_p2_affine *agr_sig_affine, blst_p2_affine a_sig_affine, blst_p2_affine b_sig_affine) {
+    blst_p2 a_sig_proj, b_sig_proj;
+    blst_p2_from_affine(&a_sig_proj, &a_sig_affine);
+    blst_p2_from_affine(&b_sig_proj, &b_sig_affine);
+    blst_p2_add_or_double(agr_sig, &a_sig_proj, &b_sig_proj);
+    blst_p2_to_affine(agr_sig_affine, agr_sig);
+}
+
+void aggrPublicKey (blst_p1 *agr_pk, blst_p1_affine *agr_pk_affine, blst_p1_affine a_pk_affine, blst_p1_affine b_pk_affine) {
+    blst_p1 a_pk_proj, b_pk_proj;
+    blst_p1_from_affine(&a_pk_proj, &a_pk_affine);
+    blst_p1_from_affine(&b_pk_proj, &b_pk_affine);
+    blst_p1_add_or_double(agr_pk, &a_pk_proj, &b_pk_proj);
+    blst_p1_to_affine(agr_pk_affine, agr_pk);
+}
+
 int main() {
     srand(time(NULL));
     blst_scalar a_sk, b_sk;
     uint8_t a_pk_bytes[96], b_pk_bytes[96];
-    blst_p1_affine a_pk_affine, b_pk_affine;
-    blst_p2_affine a_sig_affine, b_sig_affine;
+    blst_p1 agr_pk;
+    blst_p1_affine a_pk_affine, b_pk_affine, agr_pk_affine;
+    blst_p2 agr_sig;
+    blst_p2_affine a_sig_affine, b_sig_affine, agr_sig_affine;
     uint8_t a_sig_bytes[192], b_sig_bytes[192];
     uint384_t msg_a, msg_b;
     uint8_t msg_a_bytes[48], msg_b_bytes[48];
@@ -91,25 +109,9 @@ int main() {
     a_valid = verifyMessage(a_pk_affine, a_sig_affine, msg_a_bytes);
     b_valid = verifyMessage(b_pk_affine, b_sig_affine, msg_b_bytes);
 
-    // Aggregazione delle firme
-    blst_p2 agr_sig;
-    blst_p2_affine agr_sig_affine;
-    blst_p2 a_sig_proj, b_sig_proj;
-    blst_p2_from_affine(&a_sig_proj, &a_sig_affine);
-    blst_p2_from_affine(&b_sig_proj, &b_sig_affine);
-    blst_p2_add_or_double(&agr_sig, &a_sig_proj, &b_sig_proj);
-    blst_p2_to_affine(&agr_sig_affine, &agr_sig);
+    aggrSignatures(&agr_sig, &agr_sig_affine, a_sig_affine, b_sig_affine);
+    aggrPublicKey(&agr_pk, &agr_pk_affine, a_pk_affine, b_pk_affine);
 
-    // Aggregazione delle chiavi pubbliche
-    blst_p1 agr_pk;
-    blst_p1_affine agr_pk_affine;
-    blst_p1 a_pk_proj, b_pk_proj;
-    blst_p1_from_affine(&a_pk_proj, &a_pk_affine);
-    blst_p1_from_affine(&b_pk_proj, &b_pk_affine);
-    blst_p1_add_or_double(&agr_pk, &a_pk_proj, &b_pk_proj);
-    blst_p1_to_affine(&agr_pk_affine, &agr_pk);
-
-    // // Verifica della firma aggregata
     uint8_t msg_agr_bytes[96];
     memcpy(msg_agr_bytes, msg_a_bytes, 48);
     memcpy(msg_agr_bytes + 48, msg_b_bytes, 48);
