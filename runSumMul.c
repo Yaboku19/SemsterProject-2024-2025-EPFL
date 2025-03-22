@@ -8,6 +8,7 @@
 #include "header/multiplication.h"
 
 int main(int argc, char* argv[]) {
+    srand(time(NULL));
     /* Creation of all the memory needed */
     uint384_t *a = malloc(SIZE * sizeof(uint384_t));
     uint384_t *b = malloc(SIZE * sizeof(uint384_t));
@@ -24,8 +25,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     /* Initialization of all the memory. */
-    generate_large_number384(a, SIZE);
-    generate_large_number384(b, SIZE);
+    generate_large_number384(a, SIZE, (unsigned int)rand());
+    generate_large_number384(b, SIZE, (unsigned int)rand());
     generate_number_384_v2(upB, SIZE_SIMD, b, 0);
     generate_number_384_v2(lowB, SIZE_SIMD, b, 1);
     generate_number_384_v2(upA, SIZE_SIMD, a, 0);

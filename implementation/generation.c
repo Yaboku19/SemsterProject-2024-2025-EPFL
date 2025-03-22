@@ -11,8 +11,8 @@ uint64_t generate_random_64bit2() {
     return high | low;
 }
 
-void generate_large_number384(uint384_t *num, int length) {
-    srand(time(NULL));
+void generate_large_number384(uint384_t *num, int length, unsigned int seed) {
+    srand(seed);
     for (int i = 0; i < length; i++) {
         for (int j = 0; j < 6; j++) {
             num[i].chunk[j] = generate_random_64bit2();

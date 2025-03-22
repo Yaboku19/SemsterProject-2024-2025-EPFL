@@ -77,7 +77,7 @@ void aggrSignatures (blst_p2 *agr_sig, blst_p2_affine *agr_sig_affine, blst_p2_a
     blst_p2_to_affine(agr_sig_affine, agr_sig);
 }
 
-void aggrPublicKey (blst_p1 *agr_pk, blst_p1_affine *agr_pk_affine, blst_p1_affine a_pk_affine, blst_p1_affine b_pk_affine) {
+void aggrPublicKeys (blst_p1 *agr_pk, blst_p1_affine *agr_pk_affine, blst_p1_affine a_pk_affine, blst_p1_affine b_pk_affine) {
     blst_p1 a_pk_proj, b_pk_proj;
     blst_p1_from_affine(&a_pk_proj, &a_pk_affine);
     blst_p1_from_affine(&b_pk_proj, &b_pk_affine);
@@ -85,8 +85,7 @@ void aggrPublicKey (blst_p1 *agr_pk, blst_p1_affine *agr_pk_affine, blst_p1_affi
     blst_p1_to_affine(agr_pk_affine, agr_pk);
 }
 
-int main() {
-    srand(time(NULL));
+void signVerifyTwoMessages () {
     blst_scalar a_sk, b_sk;
     uint8_t a_pk_bytes[96], b_pk_bytes[96];
     blst_p1 agr_pk;
@@ -96,8 +95,9 @@ int main() {
     uint8_t a_sig_bytes[192], b_sig_bytes[192];
     uint384_t msg_a, msg_b;
     uint8_t msg_a_bytes[48], msg_b_bytes[48];
-    generate_large_number384(&msg_a, 1);
-    generate_large_number384(&msg_b, 1);
+    generate_large_number384(&msg_a, 1, (unsigned int)rand());
+    //generate_large_number384(&msg_b, 1, (unsigned int)rand());
+    msg_b = msg_a;
     memcpy(msg_a_bytes, msg_a.chunk, 48);
     memcpy(msg_b_bytes, msg_b.chunk, 48);
     int a_valid, b_valid;
@@ -110,7 +110,7 @@ int main() {
     b_valid = verifyMessage(b_pk_affine, b_sig_affine, msg_b_bytes);
 
     aggrSignatures(&agr_sig, &agr_sig_affine, a_sig_affine, b_sig_affine);
-    aggrPublicKey(&agr_pk, &agr_pk_affine, a_pk_affine, b_pk_affine);
+    aggrPublicKeys(&agr_pk, &agr_pk_affine, a_pk_affine, b_pk_affine);
 
     uint8_t msg_agr_bytes[96];
     memcpy(msg_agr_bytes, msg_a_bytes, 48);
@@ -210,5 +210,101 @@ int main() {
         printf("Signature agr is INVALID ❌");
     }
     printf("\n");
+}
+
+void signVerifySomeMessages(int num_messages) {
+    blst_scalar *sks = malloc(num_messages * sizeof(blst_scalar));
+    if (!sks) {
+        printf("Failed to allocate memory for secret keys ❌\n");
+        return;
+    }
+    uint8_t (*pk_bytes)[96] = malloc(num_messages * sizeof(*pk_bytes));
+    if (!pk_bytes) {
+        printf("Failed to allocate memory for public key bytes ❌\n");
+        return;
+    }
+    blst_p1 agr_pk;
+    blst_p1_affine agr_pk_affine, *pk_affines = malloc(num_messages * sizeof(blst_p1_affine));
+    if (!pk_affines) {
+        printf("Failed to allocate memory for public key affines ❌\n");
+        return;
+    }
+    blst_p2 agr_sig;
+    blst_p2_affine agr_sig_affine, *sig_affines = malloc(num_messages * sizeof(blst_p2_affine));
+    if (!sig_affines) {
+        printf("Failed to allocate memory for signature affines ❌\n");
+        return;
+    }
+    uint8_t (*sig_bytes)[192] = malloc(num_messages * sizeof(*sig_bytes));
+    if (!sig_bytes) {
+        printf("Failed to allocate memory for signature bytes ❌\n");
+        return;
+    }
+    uint384_t *msgs = malloc(num_messages * sizeof(uint384_t));
+    if (!msgs) {
+        printf("Failed to allocate memory for messages ❌\n");
+        return;
+    }
+    uint8_t (*msg_bytes)[48] = malloc(num_messages * sizeof(*msg_bytes));
+    if (!msg_bytes) {
+        printf("Failed to allocate memory for message bytes ❌\n");
+        return;
+    }
+    uint8_t *msg_agr_bytes = malloc(num_messages * 48);
+    if (!msg_agr_bytes) {
+        printf("Failed to allocate memory for aggregated message bytes ❌\n");
+        return;
+    }
+    int valid = 1, valid_agr;
+    /* Generate messages */
+    generate_large_number384(&msgs[0], 1, (unsigned int)rand());
+    memcpy(msg_bytes[0], msgs[0].chunk, 48);
+    memcpy(msg_agr_bytes, msg_bytes[0], 48);
+    for (int i = 1; i < num_messages; i++) {
+        msgs[i] = msgs[0];
+        memcpy(msg_bytes[i], msgs[i].chunk, 48);
+        memcpy(msg_agr_bytes + (48 * i), msg_bytes[i], 48);
+    }
+    /* Generate keys */
+    for (int i = 0; i < num_messages; i++) {
+        generateKeys(&sks[i], pk_bytes[i], &pk_affines[i]);
+    }
+    /* Sign messages */
+    for (int i = 0; i < num_messages; i++) {
+        signMessage(sks[i], &sig_affines[i], sig_bytes[i], msg_bytes[i]);
+    }
+    /* Verify messages */
+    for (int i = 0; i < num_messages; i++) {
+        valid = valid && verifyMessage(pk_affines[i], sig_affines[i], msg_bytes[i]);
+    }
+    /* Aggregate signatures */
+    aggrSignatures(&agr_sig, &agr_sig_affine, sig_affines[0], sig_affines[1]);
+    for (int i = 2; i < num_messages; i++) {
+        aggrSignatures(&agr_sig, &agr_sig_affine, agr_sig_affine, sig_affines[i]);
+    }
+    /* Aggregate public keys */
+    aggrPublicKeys(&agr_pk, &agr_pk_affine, pk_affines[0], pk_affines[1]);
+    for (int i = 2; i < num_messages; i++) {
+        aggrPublicKeys(&agr_pk, &agr_pk_affine, agr_pk_affine, pk_affines[i]);
+    }
+    /* Verify aggregated signature */
+    valid_agr = verifyMessage(agr_pk_affine, agr_sig_affine, msg_agr_bytes);
+    if (valid) {
+        printf("Signatures are VALID ✅");
+    } else {
+        printf("Signatures are INVALID ❌");
+    }
+    printf("\n\n");
+    if (valid_agr) {
+        printf("Signature aggr is VALID ✅");
+    } else {
+        printf("Signature aggr is INVALID ❌");
+    }
+    printf("\n\n");
+}
+
+int main() {
+    srand(time(0));
+    signVerifySomeMessages(10);
     return 0;
 }
