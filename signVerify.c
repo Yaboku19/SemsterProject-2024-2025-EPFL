@@ -212,7 +212,7 @@ void signVerifyTwoMessages () {
     printf("\n");
 }
 
-void signVerifySomeMessages(int num_messages) {
+void signVerifySomeMessages (int num_messages) {
     blst_scalar *sks = malloc(num_messages * sizeof(blst_scalar));
     if (!sks) {
         printf("Failed to allocate memory for secret keys ❌\n");
