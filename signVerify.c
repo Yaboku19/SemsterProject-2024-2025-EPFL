@@ -57,13 +57,19 @@ int verifyMessage (uint8_t *message, blst_p2_affine sig_affine, blst_p1_affine p
     return valid;
 }
 
-void aggrSignatures (blst_p2 *agr_sig, blst_p2_affine *agr_sig_affine, blst_p2 a_sig, blst_p2 b_sig) {
-    blst_p2_add_or_double(agr_sig, &a_sig, &b_sig);
+void aggrSignatures (blst_p2 *agr_sig, blst_p2_affine *agr_sig_affine, blst_p2 *sigs, int num) {
+    *agr_sig = sigs[0];
+    for (int i = 1; i < num; i++){
+        blst_p2_add_or_double(agr_sig, agr_sig, &sigs[i]);
+    }
     blst_p2_to_affine(agr_sig_affine, agr_sig);
 }
 
-void aggrPublicKeys (blst_p1 *agr_pk, blst_p1_affine *agr_pk_affine, blst_p1 a_pk, blst_p1 b_pk) {
-    blst_p1_add_or_double(agr_pk, &a_pk, &b_pk);
+void aggrPublicKeys (blst_p1 *agr_pk, blst_p1_affine *agr_pk_affine, blst_p1 *pks, int num) {
+    *agr_pk = pks[0];
+    for (int i = 1; i < num; i++){
+        blst_p1_add_or_double(agr_pk, agr_pk, &pks[i]);
+    }
     blst_p1_to_affine(agr_pk_affine, agr_pk);
 }
 
@@ -88,9 +94,10 @@ void signVerifyTwoMessages () {
     signMessage(b_sk, msg_b_bytes, &b_sig, b_sig_bytes, &b_sig_affine);
     a_valid = verifyMessage(msg_a_bytes, a_sig_affine, a_pk_affine);
     b_valid = verifyMessage(msg_b_bytes, b_sig_affine, b_pk_affine);
-
-    aggrSignatures(&agr_sig, &agr_sig_affine, a_sig, b_sig);
-    aggrPublicKeys(&agr_pk, &agr_pk_affine, a_pk, b_pk);
+    blst_p2 sigs[2] = {a_sig, b_sig};
+    aggrSignatures(&agr_sig, &agr_sig_affine, sigs, 2);
+    blst_p1 pks[2] = {a_pk, b_pk};
+    aggrPublicKeys(&agr_pk, &agr_pk_affine, pks, 2);
 
     memcpy(msg_agr_bytes, msg_a_bytes, 48);
     memcpy(msg_agr_bytes + 48, msg_b_bytes, 48);
@@ -229,15 +236,9 @@ void signVerifySomeMessages (int num_messages) {
         valid = valid && verifyMessage(msg_bytes[i], sig_affines[i], pk_affines[i]);
     }
     /* Aggregate signatures */
-    aggrSignatures(&agr_sig, &agr_sig_affine, sigs[0], sigs[1]);
-    for (int i = 2; i < num_messages; i++) {
-        aggrSignatures(&agr_sig, &agr_sig_affine, agr_sig, sigs[i]);
-    }
+    aggrSignatures(&agr_sig, &agr_sig_affine, sigs, num_messages);
     /* Aggregate public keys */
-    aggrPublicKeys(&agr_pk, &agr_pk_affine, pks[0], pks[1]);
-    for (int i = 2; i < num_messages; i++) {
-        aggrPublicKeys(&agr_pk, &agr_pk_affine, agr_pk, pks[i]);
-    }
+    aggrPublicKeys(&agr_pk, &agr_pk_affine, pks, num_messages);
     /* Verify aggregated signature */
     valid_agr = verifyMessage(msg_agr_bytes, agr_sig_affine, agr_pk_affine);
     if (valid) {
@@ -256,6 +257,6 @@ void signVerifySomeMessages (int num_messages) {
 
 int main() {
     srand(time(0));
-    signVerifySomeMessages(10);
+    signVerifyTwoMessages(10);
     return 0;
 }
