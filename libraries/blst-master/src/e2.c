@@ -422,8 +422,8 @@ void blst_p2_add(POINTonE2 *out, const POINTonE2 *a, const POINTonE2 *b)
 {   POINTonE2_add(out, a, b);   }
 
 void blst_four_p2_add(POINTonE2 *out, const POINTonE2 *a,
-    const POINTonE2 *b)
-{   POINTonE2_add_four(out, a, b);  }
+        const POINTonE2 *b, int n)
+{   POINTonE2_add_four(out, a, b, n);  }
 
 void blst_p2_add_or_double(POINTonE2 *out, const POINTonE2 *a,
                                            const POINTonE2 *b)
