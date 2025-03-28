@@ -171,6 +171,7 @@ typedef struct { blst_fp x, y; } blst_p1_affine;
 
 void blst_p1_add(blst_p1 *out, const blst_p1 *a, const blst_p1 *b);
 void blst_p1_add_or_double(blst_p1 *out, const blst_p1 *a, const blst_p1 *b);
+void blst_four_p1_add(blst_p1 *out, const blst_p1 *a, const blst_p1 *b);
 void blst_p1_add_affine(blst_p1 *out, const blst_p1 *a,
                                       const blst_p1_affine *b);
 void blst_p1_add_or_double_affine(blst_p1 *out, const blst_p1 *a,
@@ -198,6 +199,7 @@ typedef struct { blst_fp2 x, y; } blst_p2_affine;
 
 void blst_p2_add(blst_p2 *out, const blst_p2 *a, const blst_p2 *b);
 void blst_p2_add_or_double(blst_p2 *out, const blst_p2 *a, const blst_p2 *b);
+void blst_four_p2_add(blst_p2 *out, const blst_p2 *a, const blst_p2 *b);
 void blst_p2_add_affine(blst_p2 *out, const blst_p2 *a,
                                       const blst_p2_affine *b);
 void blst_p2_add_or_double_affine(blst_p2 *out, const blst_p2 *a,

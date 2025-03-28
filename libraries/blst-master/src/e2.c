@@ -411,9 +411,9 @@ BLST_ERROR blst_p2_deserialize(POINTonE2_affine *out,
 
 #include "ec_ops.h"
 POINT_DADD_IMPL(POINTonE2, 384x, fp2)
-POINT_DADD_IMPL_FOUR(POINTonE2, 384x, fp2)
 POINT_DADD_AFFINE_IMPL_A0(POINTonE2, 384x, fp2, BLS12_381_Rx.p2)
 POINT_ADD_IMPL(POINTonE2, 384x, fp2)
+POINT_ADD_IMPL_FOUR(POINTonE2, 384x, fp2)
 POINT_ADD_AFFINE_IMPL(POINTonE2, 384x, fp2, BLS12_381_Rx.p2)
 POINT_DOUBLE_IMPL_A0(POINTonE2, 384x, fp2)
 POINT_IS_EQUAL_IMPL(POINTonE2, 384x, fp2)
@@ -421,13 +421,13 @@ POINT_IS_EQUAL_IMPL(POINTonE2, 384x, fp2)
 void blst_p2_add(POINTonE2 *out, const POINTonE2 *a, const POINTonE2 *b)
 {   POINTonE2_add(out, a, b);   }
 
+void blst_four_p2_add(POINTonE2 *out, const POINTonE2 *a,
+    const POINTonE2 *b)
+{   POINTonE2_add_four(out, a, b);  }
+
 void blst_p2_add_or_double(POINTonE2 *out, const POINTonE2 *a,
                                            const POINTonE2 *b)
 {   POINTonE2_dadd(out, a, b, NULL);   }
-
-void blst_four_p2_add_or_double(POINTonE2 *out, const POINTonE2 *a,
-                                const POINTonE2 *b)
-{   POINTonE2_dadd_four(out, a, b, NULL);  }
 
 void blst_p2_add_affine(POINTonE2 *out, const POINTonE2 *a,
                                         const POINTonE2_affine *b)
