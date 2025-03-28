@@ -352,6 +352,7 @@ BLST_ERROR blst_p1_deserialize(POINTonE1_affine *out,
 
 #include "ec_ops.h"
 POINT_DADD_IMPL(POINTonE1, 384, fp)
+POINT_DADD_IMPL_FOUR(POINTonE1, 384, fp)
 POINT_DADD_AFFINE_IMPL_A0(POINTonE1, 384, fp, BLS12_381_Rx.p)
 POINT_ADD_IMPL(POINTonE1, 384, fp)
 POINT_ADD_AFFINE_IMPL(POINTonE1, 384, fp, BLS12_381_Rx.p)
@@ -364,6 +365,10 @@ void blst_p1_add(POINTonE1 *out, const POINTonE1 *a, const POINTonE1 *b)
 void blst_p1_add_or_double(POINTonE1 *out, const POINTonE1 *a,
                                            const POINTonE1 *b)
 {   POINTonE1_dadd(out, a, b, NULL);   }
+
+void blst_four_p1_add_or_double(POINTonE1 *out, const POINTonE1 *a,
+                                              const POINTonE1 *b)
+{   POINTonE1_dadd_four(out, a, b, NULL);  }
 
 void blst_p1_add_affine(POINTonE1 *out, const POINTonE1 *a,
                                         const POINTonE1_affine *b)

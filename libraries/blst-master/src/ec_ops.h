@@ -99,6 +99,69 @@ static void ptype##_dadd(ptype *out, const ptype *p1, const ptype *p2, \
     vec_select(out, p2, &p3, sizeof(ptype), p1inf); \
 }
 
+/* ciao */
+#define POINT_DADD_IMPL_FOUR(ptype, bits, field) \
+static void ptype##_dadd_four(ptype *out, const ptype *p1, const ptype *p2, \
+                         const vec##bits a4) \
+{ \
+    ptype p3; /* starts as (U1, S1, zz) from addition side */\
+    struct { vec##bits H, R, sx; } add, dbl; \
+    bool_t p1inf, p2inf, is_dbl; \
+\
+    add_##field(dbl.sx, p1->X, p1->X);  /* sx = X1+X1 */\
+    sqr_##field(dbl.R, p1->X);          /* X1^2 */\
+    mul_by_3_##field(dbl.R, dbl.R);     /* R = 3*X1^2 */\
+    add_##field(dbl.H, p1->Y, p1->Y);   /* H = 2*Y1 */\
+\
+    p2inf = vec_is_zero(p2->Z, sizeof(p2->Z)); \
+    sqr_##field(p3.X, p2->Z);           /* Z2^2 */\
+    mul_##field(p3.Z, p1->Z, p2->Z);    /* Z1*Z2 */\
+    p1inf = vec_is_zero(p1->Z, sizeof(p1->Z)); \
+    sqr_##field(add.H, p1->Z);          /* Z1^2 */\
+\
+    if (a4 != NULL) { \
+        sqr_##field(p3.Y, add.H);       /* Z1^4, [borrow p3.Y] */\
+        mul_##field(p3.Y, p3.Y, a4);    \
+        add_##field(dbl.R, dbl.R, p3.Y);/* R = 3*X1^2+a*Z1^4 */\
+    } \
+\
+    mul_##field(p3.Y, p1->Y, p2->Z);    \
+    mul_##field(p3.Y, p3.Y, p3.X);      /* S1 = Y1*Z2^3 */\
+    mul_##field(add.R, p2->Y, p1->Z);   \
+    mul_##field(add.R, add.R, add.H);   /* S2 = Y2*Z1^3 */\
+    sub_##field(add.R, add.R, p3.Y);    /* R = S2-S1 */\
+\
+    mul_##field(p3.X, p3.X, p1->X);     /* U1 = X1*Z2^2 */\
+    mul_##field(add.H, add.H, p2->X);   /* U2 = X2*Z1^2 */\
+\
+    add_##field(add.sx, add.H, p3.X);   /* sx = U1+U2 */\
+    sub_##field(add.H, add.H, p3.X);    /* H = U2-U1 */\
+\
+    /* make the choice between addition and doubling */\
+    is_dbl = vec_is_zero(add.H, 2*sizeof(add.H));      \
+    vec_select(&p3, p1, &p3, sizeof(p3), is_dbl);      \
+    vec_select(&add, &dbl, &add, sizeof(add), is_dbl); \
+    /* |p3| and |add| hold all inputs now, |p3| will hold output */\
+\
+    mul_##field(p3.Z, p3.Z, add.H);     /* Z3 = H*Z1*Z2 */\
+\
+    sqr_##field(dbl.H, add.H);          /* H^2 */\
+    mul_##field(dbl.R, dbl.H, add.H);   /* H^3 */\
+    mul_##field(dbl.R, dbl.R, p3.Y);    /* H^3*S1 */\
+    mul_##field(p3.Y, dbl.H, p3.X);     /* H^2*U1 */\
+\
+    mul_##field(dbl.H, dbl.H, add.sx);  /* H^2*sx */\
+    sqr_##field(p3.X, add.R);           /* R^2 */\
+    sub_##field(p3.X, p3.X, dbl.H);     /* X3 = R^2-H^2*sx */\
+\
+    sub_##field(p3.Y, p3.Y, p3.X);      /* H^2*U1-X3 */\
+    mul_##field(p3.Y, p3.Y, add.R);     /* R*(H^2*U1-X3) */\
+    sub_##field(p3.Y, p3.Y, dbl.R);     /* Y3 = R*(H^2*U1-X3)-H^3*S1 */\
+\
+    vec_select(&p3, p1, &p3, sizeof(ptype), p2inf); \
+    vec_select(out, p2, &p3, sizeof(ptype), p1inf); \
+}
+
 /*
  * Addition with affine point that can handle doubling [as well as
  * points at infinity, with |p1| being encoded as Z==0 and |p2| as
