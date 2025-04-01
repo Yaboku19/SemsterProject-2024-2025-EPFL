@@ -70,7 +70,7 @@ void mul384Simd_two_variables_ass (uint256_t *a, uint256_t *b, uint256_t *upC, u
         "vmovdqu (%[a]), %%ymm0\n"          // first operand in ymm1
         "vmovdqu (%[temp]), %%ymm2\n"       // temp in ymm2
 
-        "vpmuldq %%ymm1, %%ymm0, %%ymm0\n"  // mul first and second operand
+        "vpmuludq %%ymm1, %%ymm0, %%ymm0\n" // mul first and second operand
         "vpaddq %%ymm6, %%ymm0, %%ymm0\n"   // sum the rest
         "vpaddq %%ymm2, %%ymm0, %%ymm0\n"   // sum with temp
 
@@ -95,9 +95,6 @@ void mul384Simd_two_variables_ass (uint256_t *a, uint256_t *b, uint256_t *upC, u
 
         "dec %%rax\n"                       // decrement counter
         "jg 1b\n"                          // if not zero, loop again
-
-        "sub $384, %[b]\n"                  // resetting b
-        "sub $384, %[temp]\n"               // resetting temp
         : [a]"+r" (a), [b]"+r" (b), [upC]"+r" (upC), [lowC]"+r" (lowC), [upMask]"+r" (upMask), [lowMask]"+r" (lowMask)
         , [temp] "+r" (temp)
         :
@@ -105,9 +102,9 @@ void mul384Simd_two_variables_ass (uint256_t *a, uint256_t *b, uint256_t *upC, u
     );
     for (int i = 0; i < 12; i ++) {
         if (i % 2 == 0) {
-            lowC[i / 2] = temp[i];
+            lowC[i / 2] = tempArray[i];
         } else {
-            upC[i / 2] = temp[i];
+            upC[i / 2] = tempArray[i];
         }
     }
     checkFourModulo384(upC, lowC);

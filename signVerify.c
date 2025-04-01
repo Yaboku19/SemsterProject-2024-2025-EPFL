@@ -68,7 +68,11 @@ void aggrSignaturesInPairs (blst_p2 *agr_sig, blst_p2_affine *agr_sig_affine, bl
 void aggrSignaturesFourByFour (blst_p2 *agr_sig, blst_p2_affine *agr_sig_affine, blst_p2 *sigs, int num) {
     blst_p2 a[4] = {sigs[0], sigs[1], sigs[2], sigs[3]};
     blst_p2 b[4] = {sigs[4], sigs[5], sigs[6], sigs[7]};
-    blst_four_p2_add(agr_sig, a, b, num);
+    blst_p2_add(&agr_sig[0], &sigs[0], &sigs[4]);
+    blst_p2_add(&agr_sig[1], &sigs[1], &sigs[5]);
+    blst_p2_add(&agr_sig[2], &sigs[2], &sigs[6]);
+    blst_p2_add(&agr_sig[3], &sigs[3], &sigs[7]);
+    // blst_four_p2_add(agr_sig, a, b, num);
     blst_p2_to_affine(&agr_sig_affine[0], &agr_sig[0]);
     blst_p2_to_affine(&agr_sig_affine[1], &agr_sig[1]);
     blst_p2_to_affine(&agr_sig_affine[2], &agr_sig[2]);
@@ -107,20 +111,28 @@ void signVerifyTwoMessages () {
     memcpy(msg_a_bytes, msg_a.chunk, 48);
     memcpy(msg_b_bytes, msg_b.chunk, 48);
     int a_valid, b_valid;
-    
+    printf("key 1\n");
     generateKeys(&a_sk, &a_pk, a_pk_bytes, &a_pk_affine);
+    printf("key 2\n");
     generateKeys(&b_sk, &b_pk, b_pk_bytes, &b_pk_affine);
+    printf("sign 1\n");
     signMessage(a_sk, msg_a_bytes, &a_sig, a_sig_bytes, &a_sig_affine);
+    printf("sign 2\n");
     signMessage(b_sk, msg_b_bytes, &b_sig, b_sig_bytes, &b_sig_affine);
+    printf("verify 1\n");
     a_valid = verifyMessage(msg_a_bytes, a_sig_affine, a_pk_affine);
+    printf("verify 2\n");
     b_valid = verifyMessage(msg_b_bytes, b_sig_affine, b_pk_affine);
+    printf("agr sig\n");
     blst_p2 sigs[2] = {a_sig, b_sig};
     aggrSignaturesInPairs(&agr_sig, &agr_sig_affine, sigs, 2);
+    printf("agr key\n");
     blst_p1 pks[2] = {a_pk, b_pk};
     aggrPublicKeysInPairs(&agr_pk, &agr_pk_affine, pks, 2);
 
     memcpy(msg_agr_bytes, msg_a_bytes, 48);
     memcpy(msg_agr_bytes + 48, msg_b_bytes, 48);
+    printf("verify aggr\n");
     int agr_valid = verifyMessage(msg_agr_bytes, agr_sig_affine, agr_pk_affine);
 
     printf("----------------------------------------------------- [ messages ] -----------------------------------------------------\n");
@@ -162,6 +174,8 @@ void signVerifyTwoMessages () {
     }
     printf("\n\n");
     printf("----------------------------------------------------- [ public key ] -----------------------------------------------------\n");
+    printf("length %ld\n", sizeof(a_pk_bytes) / sizeof(a_pk_bytes[0]));
+    printf("\n\n");
     printf("Public Key a(hex): \t");
     for (int i = 0; i < 96; i++) {
         printf("%02x", a_pk_bytes[i]);
@@ -180,6 +194,7 @@ void signVerifyTwoMessages () {
     }
     printf("\n\n");
     printf("----------------------------------------------------- [ signature ] -----------------------------------------------------\n");
+    printf("length %ld\n", sizeof(a_sig_bytes) / sizeof(a_sig_bytes[0]));
     printf("Signature a(hex): \t");
     for (int i = 0; i < 192; i++) {
         printf("%02x", a_sig_bytes[i]);
