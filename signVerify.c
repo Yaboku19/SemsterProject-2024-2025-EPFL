@@ -7,7 +7,8 @@
 #include "header/struct.h"
 #include "header/generation.h"
 
-#define DST "BLS_SIG_DST" 
+#define DST "BLS_SIG_DST"
+#define FOR_SEC 1000000000.0
 
 void generateKeys (blst_scalar *sk, blst_p1 *pk, uint8_t *pk_bytes, blst_p1_affine* pk_affine) {
     uint8_t ikm[32];
@@ -228,7 +229,7 @@ void signVerifyTwoMessages () {
     printf("\n");
 }
 
-void signVerifySomeMessages (int num_messages) {
+void signVerifyMessagesInPairs (int num_messages) {
     blst_scalar *sks = malloc(num_messages * sizeof(blst_scalar));
     uint8_t (*pk_bytes)[96] = malloc(num_messages * sizeof(*pk_bytes));
     blst_p1 agr_pk, *pks = malloc(num_messages * sizeof(blst_p1));
@@ -285,7 +286,7 @@ void signVerifySomeMessages (int num_messages) {
     printf("\n\n");
 }
 
-void signVerifyEightMessages (int n) {
+void signVerifyMessagesByFour (int n) {
     blst_scalar *sks = malloc(n * sizeof(blst_scalar));
     uint8_t (*pk_bytes)[96] = malloc(n * sizeof(*pk_bytes));
     blst_p1 agr_pk, *pks = malloc(n * sizeof(blst_p1));
@@ -343,6 +344,20 @@ void signVerifyEightMessages (int n) {
 
 int main() {
     srand(time(0));
-    signVerifyEightMessages(110);
+    struct timespec start, end;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    signVerifyMessagesInPairs(1000);
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    double time = (double)(end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec);
+    printf("signVerifyMessagesInPairs\n\n");
+    printf("- Time (abs): \t%.0f\n", time);
+    printf("- Time (sec): \t%.6f\n\n", time / FOR_SEC);
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    signVerifyMessagesByFour(1000);
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    time = (double)(end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec);
+    printf("signVerifyMessagesByFour\n");
+    printf("- Time (abs): \t%.0f\n", time);
+    printf("- Time (sec): \t%.6f\n", time / FOR_SEC);
     return 0;
 }
