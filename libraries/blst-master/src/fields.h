@@ -240,9 +240,9 @@ static inline void simd_mul_fp(vec384 *out, vec384 *a, vec384 *b) {
     }
 }
 
-static inline void print_fp(vec384 *out) {
+static inline void print_fp(vec384 *out, char *str) {
     for(int j = 0; j < 4; j++) {
-        printf("out[%d]:\t %016lx", j, out[j][5]);
+        printf("%s[%d]:\t %016lx", str, j, out[j][5]);
         for (int i = 4; i > -1; i--) {
             printf("_%016lx", out[j][i]);
         }
@@ -317,9 +317,9 @@ static inline void simd_add_fp2(vec384x *out, vec384x *a, vec384x *b) {
     printf("\n"); 
 }
 
-static inline void print_fp2(vec384x *out) {
+static inline void print_fp2(vec384x *out, char *str) {
     for(int j = 0; j < 4; j++) {
-        printf("outx[%d]:\t %llx", j, out[j][0][0]);
+        printf("%sx[%d]:\t %llx", str, j, out[j][0][0]);
         for (int i = 1; i < 6; i++) {
             printf("_%llx", out[j][0][i]);
         }

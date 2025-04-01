@@ -258,11 +258,8 @@ static void ptype##_add(ptype *out, const ptype *p1, const ptype *p2) \
 /*     mul_##field(S1[2], Z2Z2[2], p2[2].Z);            Z2_3 * Z2Z2_3 */ \
 /*     mul_##field(S1[3], Z2Z2[3], p2[3].Z);            Z2_4 * Z2Z2_4 */ \
 #define POINT_ADD_IMPL_FOUR(ptype, bits, field) \
-static void ptype##_add_four(ptype *out, const ptype *p1, const ptype *p2, int n) \
+static void ptype##_add_four(ptype *out, const ptype *p1, const ptype *p2) \
 { \
-    int m; \
-    m = n; \
-    n = m; \
     ptype p3[4] = {0}; \
     vec##bits Z1Z1[4], Z2Z2[4], U1[4], S1[4], H[4], I[4], J[4], a[4], b[4], out_s[4]; \
     bool_t p1inf[4], p2inf[4]; \
@@ -297,16 +294,10 @@ static void ptype##_add_four(ptype *out, const ptype *p1, const ptype *p2, int n
     sqr_##field(Z2Z2[2], p2[2].Z);                  /* Z2Z2_3 = Z2_3 ^ 2 */ \
     sqr_##field(Z2Z2[3], p2[3].Z);                  /* Z2Z2_4 = Z2_4 ^ 2 */ \
 \
-    COPY_FROM_POINT_TO_ARRAY(b, p2, Z, sizeof(vec##bits)); \
-    print_##field(b);\
-    print_##field(Z2Z2);\
-    simd_mul_##field(out_s, Z2Z2, b); \
     mul_##field(S1[0], Z2Z2[0], p2[0].Z);           /* Z2_1 * Z2Z2_1 */ \
     mul_##field(S1[1], Z2Z2[1], p2[1].Z);           /* Z2_2 * Z2Z2_2 */ \
     mul_##field(S1[2], Z2Z2[2], p2[2].Z);           /* Z2_3 * Z2Z2_3 */ \
     mul_##field(S1[3], Z2Z2[3], p2[3].Z);           /* Z2_4 * Z2Z2_4 */ \
-    print_##field(out_s);\
-    print_##field(S1);\
 \
     mul_##field(S1[0], S1[0], p1[0].Y);             /* S1_1 = Y1_1 * Z2_1 * Z2Z2_1 */ \
     mul_##field(S1[1], S1[1], p1[1].Y);             /* S1_2 = Y1_2 * Z2_2 * Z2Z2_2 */ \

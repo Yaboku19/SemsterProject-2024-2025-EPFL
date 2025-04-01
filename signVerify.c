@@ -88,13 +88,8 @@ void aggrPublicKeysInPairs (blst_p1 *agr_pk, blst_p1_affine *agr_pk_affine, blst
 }
 
 void aggrPublicKeysFourByFour (blst_p1 *agr_pk, blst_p1_affine *agr_pk_affine, blst_p1 *pks, int num) {
-    blst_p1 a[4] = {pks[0], pks[1], pks[2], pks[3]};
-    blst_p1 b[4] = {pks[4], pks[5], pks[6], pks[7]};
-    blst_four_p1_add(agr_pk, a, b, num);
-    blst_p1_to_affine(&agr_pk_affine[0], &agr_pk[0]);
-    blst_p1_to_affine(&agr_pk_affine[1], &agr_pk[1]);
-    blst_p1_to_affine(&agr_pk_affine[2], &agr_pk[2]);
-    blst_p1_to_affine(&agr_pk_affine[3], &agr_pk[3]);
+    blst_four_p1_add(agr_pk, pks, num);
+    blst_p1_to_affine(agr_pk_affine, agr_pk);
 }
 
 void signVerifyTwoMessages () {
@@ -290,17 +285,17 @@ void signVerifySomeMessages (int num_messages) {
     printf("\n\n");
 }
 
-void signVerifyEightMessages () {
-    blst_scalar *sks = malloc(8 * sizeof(blst_scalar));
-    uint8_t (*pk_bytes)[96] = malloc(8 * sizeof(*pk_bytes));
-    blst_p1 *agr_pk = malloc(4 * sizeof(blst_p1)), *pks = malloc(8 * sizeof(blst_p1));
-    blst_p1_affine *agr_pk_affine = malloc(4 * sizeof(blst_p1_affine)), *pk_affines = malloc(8 * sizeof(blst_p1_affine));
-    blst_p2 *agr_sig = malloc(4 * sizeof(blst_p2)), *sigs = malloc(8 * sizeof(blst_p2));
-    blst_p2_affine *agr_sig_affine = malloc(4 * sizeof(blst_p2_affine)), *sig_affines = malloc(8 * sizeof(blst_p2_affine));
-    uint8_t (*sig_bytes)[192] = malloc(8 * sizeof(*sig_bytes));
-    uint384_t *msgs = malloc(8 * sizeof(uint384_t));
-    uint8_t (*msg_bytes)[48] = malloc(8 * sizeof(*msg_bytes));
-    uint8_t *msg_agr_bytes = malloc(8 * 48);
+void signVerifyEightMessages (int n) {
+    blst_scalar *sks = malloc(n * sizeof(blst_scalar));
+    uint8_t (*pk_bytes)[96] = malloc(n * sizeof(*pk_bytes));
+    blst_p1 agr_pk, *pks = malloc(n * sizeof(blst_p1));
+    blst_p1_affine agr_pk_affine, *pk_affines = malloc(n * sizeof(blst_p1_affine));
+    blst_p2 agr_sig, *sigs = malloc(n * sizeof(blst_p2));
+    blst_p2_affine agr_sig_affine, *sig_affines = malloc(n * sizeof(blst_p2_affine));
+    uint8_t (*sig_bytes)[192] = malloc(n * sizeof(*sig_bytes));
+    uint384_t *msgs = malloc(n * sizeof(uint384_t));
+    uint8_t (*msg_bytes)[48] = malloc(n * sizeof(*msg_bytes));
+    uint8_t *msg_agr_bytes = malloc(n * 48);
     int valid = 1, valid_agr = 1;
     if (!sks || !pk_bytes || !pk_affines || !sig_affines || !sig_bytes || !msgs || !msg_bytes || !msg_agr_bytes || !pks) {
         printf("Failed to allocate memory \n");
@@ -310,38 +305,35 @@ void signVerifyEightMessages () {
     generate_large_number384(&msgs[0], 1, (unsigned int)rand());
     memcpy(msg_bytes[0], msgs[0].chunk, 48);
     memcpy(msg_agr_bytes, msg_bytes[0], 48);
-    for (int i = 1; i < 8; i++) {
+    for (int i = 1; i < n; i++) {
         msgs[i] = msgs[0];
         memcpy(msg_bytes[i], msgs[i].chunk, 48);
         memcpy(msg_agr_bytes + (48 * i), msg_bytes[i], 48);
     }
     /* Generate keys */
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < n; i++) {
         generateKeys(&sks[i], &pks[i], pk_bytes[i], &pk_affines[i]);
     }
     /* Sign messages */
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < n; i++) {
         signMessage(sks[i], msg_bytes[i], &sigs[i], sig_bytes[i], &sig_affines[i]);
     }
     /* Verify messages */
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < n; i++) {
         valid = valid && verifyMessage(msg_bytes[i], sig_affines[i], pk_affines[i]);
     }
     /* Aggregate signatures */
-    aggrSignaturesFourByFour(agr_sig, agr_sig_affine, sigs, 4);
+    aggrSignaturesInPairs(&agr_sig, &agr_sig_affine, sigs, n);
     /* Aggregate public keys */
-    aggrPublicKeysFourByFour(agr_pk, agr_pk_affine, pks, 4);
-    /* Verify aggregated signature */
-    for (int i = 0; i < 4; i++) {
-        valid_agr = valid_agr && verifyMessage(msg_agr_bytes, agr_sig_affine[i], agr_pk_affine[i]);
-    }
+    aggrPublicKeysFourByFour(&agr_pk, &agr_pk_affine, pks, n);
+
     if (valid) {
         printf("Signatures are VALID ✅");
     } else {
         printf("Signatures are INVALID ❌");
     }
     printf("\n\n");
-    if (valid_agr) {
+    if (verifyMessage(msg_agr_bytes, agr_sig_affine, agr_pk_affine)) {
         printf("Signature aggr is VALID ✅");
     } else {
         printf("Signature aggr is INVALID ❌");
@@ -351,6 +343,6 @@ void signVerifyEightMessages () {
 
 int main() {
     srand(time(0));
-    signVerifyEightMessages(10);
+    signVerifyEightMessages(110);
     return 0;
 }
