@@ -421,9 +421,43 @@ POINT_IS_EQUAL_IMPL(POINTonE2, 384x, fp2)
 void blst_p2_add(POINTonE2 *out, const POINTonE2 *a, const POINTonE2 *b)
 {   POINTonE2_add(out, a, b);   }
 
-void blst_four_p2_add(POINTonE2 *out, const POINTonE2 *a,
-        const POINTonE2 *b)
-{   POINTonE2_add_four(out, a, b);  }
+void blst_four_p2_add(POINTonE2 *out, POINTonE2 *signs, int n) {
+    POINTonE2 temp[4], fs[4], sd[4];
+    int i = 0, k = 0;
+    int new_n = n;
+    while (new_n > 1) {
+        int groups = new_n / 8;
+        if (groups > 0) {
+            for (k = 0; k < groups; k ++) {
+                for(i = 0; i < 8; i += 2) {
+                    fs[i / 2] = signs[i + k * 8]; 
+                    sd[i / 2] = signs[i + 1 + k * 8];
+                }
+                POINTonE2_add_four(temp, fs, sd);
+                for(i = 0; i < 4; i += 1) {
+                    signs[i + k * 4] = temp[i];
+                }
+            }
+            for (k = 0; k < new_n - (groups * 8); k++) {
+                signs[(groups * 4) + k] = signs[(groups * 8) + k];
+            }
+            new_n = (groups * 4) + k;
+        } else {
+            int groups = new_n / 2;
+            for (k = 0; k < groups; k ++) {
+                POINTonE2_add(&signs[k], &signs[k * 2], &signs[(k * 2) + 1]);
+            }
+            if (groups * 2 < new_n) {
+                signs[groups] = signs[groups * 2];
+                new_n = groups + 1;
+            } else {
+                new_n = groups;
+            }
+            
+        }
+    }
+    *out = signs[0];
+}
 
 void blst_p2_add_or_double(POINTonE2 *out, const POINTonE2 *a,
                                            const POINTonE2 *b)

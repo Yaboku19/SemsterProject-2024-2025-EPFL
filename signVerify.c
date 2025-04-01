@@ -67,17 +67,8 @@ void aggrSignaturesInPairs (blst_p2 *agr_sig, blst_p2_affine *agr_sig_affine, bl
 }
 
 void aggrSignaturesFourByFour (blst_p2 *agr_sig, blst_p2_affine *agr_sig_affine, blst_p2 *sigs, int num) {
-    blst_p2 a[4] = {sigs[0], sigs[1], sigs[2], sigs[3]};
-    blst_p2 b[4] = {sigs[4], sigs[5], sigs[6], sigs[7]};
-    blst_p2_add(&agr_sig[0], &sigs[0], &sigs[4]);
-    blst_p2_add(&agr_sig[1], &sigs[1], &sigs[5]);
-    blst_p2_add(&agr_sig[2], &sigs[2], &sigs[6]);
-    blst_p2_add(&agr_sig[3], &sigs[3], &sigs[7]);
-    // blst_four_p2_add(agr_sig, a, b, num);
-    blst_p2_to_affine(&agr_sig_affine[0], &agr_sig[0]);
-    blst_p2_to_affine(&agr_sig_affine[1], &agr_sig[1]);
-    blst_p2_to_affine(&agr_sig_affine[2], &agr_sig[2]);
-    blst_p2_to_affine(&agr_sig_affine[3], &agr_sig[3]);
+    blst_four_p2_add(agr_sig, sigs, num);
+    blst_p2_to_affine(agr_sig_affine, agr_sig);
 }
 
 void aggrPublicKeysInPairs (blst_p1 *agr_pk, blst_p1_affine *agr_pk_affine, blst_p1 *pks, int num) {
@@ -324,7 +315,7 @@ void signVerifyMessagesByFour (int n) {
         valid = valid && verifyMessage(msg_bytes[i], sig_affines[i], pk_affines[i]);
     }
     /* Aggregate signatures */
-    aggrSignaturesInPairs(&agr_sig, &agr_sig_affine, sigs, n);
+    aggrSignaturesFourByFour(&agr_sig, &agr_sig_affine, sigs, n);
     /* Aggregate public keys */
     aggrPublicKeysFourByFour(&agr_pk, &agr_pk_affine, pks, n);
 

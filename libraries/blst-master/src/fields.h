@@ -291,30 +291,23 @@ static inline void add_fp2(vec384x ret, const vec384x a, const vec384x b)
 {   add_mod_384x(ret, a, b, BLS12_381_P);   }
 
 static inline void simd_add_fp2(vec384x *out, vec384x *a, vec384x *b) {
-    for(int j = 0; j < 4; j++) {
-        printf("ax[%d]:\t %llx", j, a[j][0][0]);
-        for (int i = 1; i < 6; i++) {
-            printf("_%llx", a[j][0][i]);
+    vec384 aR[4], aI[4], bR[4], bI[4], outR[4], outI[4];
+    for(int i = 0; i < 4; i++) {
+        for (int j = 0; j < 6; j++) {
+            aR[i][j] = a[i][0][j];
+            aI[i][j] = a[i][1][j];
+            bR[i][j] = b[i][0][j];
+            bI[i][j] = b[i][1][j];
         }
-        printf("\n");
     }
-    printf("\n");
-    for(int j = 0; j < 4; j++) {
-        printf("bx[%d]:\t %llx", j, b[j][0][0]);
-        for (int i = 1; i < 6; i++) {
-            printf("_%llx", b[j][0][i]);
+    simd_add_fp(outR, aR, bR);
+    simd_add_fp(outI, aI, bI);
+    for(int i = 0; i < 4; i++) {
+        for (int j = 0; j < 6; j++) {
+            out[i][0][j] = outR[i][j];
+            out[i][1][j] = outI[i][j];
         }
-        printf("\n");
     }
-    printf("\n");
-    for(int j = 0; j < 4; j++) {
-        printf("outx[%d]:\t %llx", j, out[j][0][0]);
-        for (int i = 1; i < 6; i++) {
-            printf("_%llx", out[j][0][i]);
-        }
-        printf("\n");
-    }
-    printf("\n"); 
 }
 
 static inline void print_fp2(vec384x *out, char *str) {
