@@ -59,10 +59,20 @@ int verifyMessage (uint8_t *message, blst_p2_affine sig_affine, blst_p1_affine p
 }
 
 void aggrSignaturesInPairs (blst_p2 *agr_sig, blst_p2_affine *agr_sig_affine, blst_p2 *sigs, int num) {
-    *agr_sig = sigs[0];
-    for (int i = 1; i < num; i++){
-        blst_p2_add(agr_sig, agr_sig, &sigs[i]);
+    int new_n = num;
+    while (new_n > 1) {
+        int groups = new_n / 2;
+        for (int k = 0; k < groups; k ++) {
+            blst_p2_add(&sigs[k], &sigs[k * 2], &sigs[(k * 2) + 1]);
+        }
+        if (groups * 2 < new_n) {
+            sigs[groups] = sigs[groups * 2];
+            new_n = groups + 1;
+        } else {
+            new_n = groups;
+        }
     }
+    *agr_sig = sigs[0];
     blst_p2_to_affine(agr_sig_affine, agr_sig);
 }
 
@@ -72,10 +82,20 @@ void aggrSignaturesFourByFour (blst_p2 *agr_sig, blst_p2_affine *agr_sig_affine,
 }
 
 void aggrPublicKeysInPairs (blst_p1 *agr_pk, blst_p1_affine *agr_pk_affine, blst_p1 *pks, int num) {
-    *agr_pk = pks[0];
-    for (int i = 1; i < num; i++){
-        blst_p1_add(agr_pk, agr_pk, &pks[i]);
+    int new_n = num;
+    while (new_n > 1) {
+        int groups = new_n / 2;
+        for (int k = 0; k < groups; k ++) {
+            blst_p1_add(&pks[k], &pks[k * 2], &pks[(k * 2) + 1]);
+        }
+        if (groups * 2 < new_n) {
+            pks[groups] = pks[groups * 2];
+            new_n = groups + 1;
+        } else {
+            new_n = groups;
+        }
     }
+    *agr_pk = pks[0];
     blst_p1_to_affine(agr_pk_affine, agr_pk);
 }
 
@@ -337,18 +357,18 @@ int main() {
     srand(time(0));
     struct timespec start, end;
     clock_gettime(CLOCK_MONOTONIC, &start);
-    signVerifyMessagesInPairs(1000);
+    signVerifyMessagesInPairs(100);
     clock_gettime(CLOCK_MONOTONIC, &end);
-    double time = (double)(end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec);
+    double time = (double)(end.tv_sec - start.tv_sec) * FOR_SEC + (double)(end.tv_nsec - start.tv_nsec);
     printf("signVerifyMessagesInPairs\n\n");
-    printf("- Time (abs): \t%.0f\n", time);
+    printf("- Time (nsec): \t%.0f\n", time);
     printf("- Time (sec): \t%.6f\n\n", time / FOR_SEC);
     clock_gettime(CLOCK_MONOTONIC, &start);
-    signVerifyMessagesByFour(1000);
+    signVerifyMessagesByFour(100);
     clock_gettime(CLOCK_MONOTONIC, &end);
-    time = (double)(end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec);
+    time = (double)(end.tv_sec - start.tv_sec) * FOR_SEC + (double)(end.tv_nsec - start.tv_nsec);
     printf("signVerifyMessagesByFour\n");
-    printf("- Time (abs): \t%.0f\n", time);
+    printf("- Time (nsec): \t%.0f\n", time);
     printf("- Time (sec): \t%.6f\n", time / FOR_SEC);
     return 0;
 }
