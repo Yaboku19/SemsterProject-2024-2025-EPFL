@@ -9,6 +9,7 @@
 
 #define DST "BLS_SIG_DST"
 #define FOR_SEC 1000000000.0
+#define NUM_MESSAGES 8
 
 void generateKeys (blst_scalar *sk, blst_p1 *pk, uint8_t *pk_bytes, blst_p1_affine* pk_affine) {
     uint8_t ikm[32];
@@ -240,7 +241,7 @@ void signVerifyTwoMessages () {
     printf("\n");
 }
 
-void signVerifyMessagesInPairs (int num_messages) {
+void signVerifyMessagesInPairs (int num_messages, double *time) {
     blst_scalar *sks = malloc(num_messages * sizeof(blst_scalar));
     uint8_t (*pk_bytes)[96] = malloc(num_messages * sizeof(*pk_bytes));
     blst_p1 agr_pk, *pks = malloc(num_messages * sizeof(blst_p1));
@@ -277,10 +278,14 @@ void signVerifyMessagesInPairs (int num_messages) {
     for (int i = 0; i < num_messages; i++) {
         valid = valid && verifyMessage(msg_bytes[i], sig_affines[i], pk_affines[i]);
     }
+    struct timespec start, end;
+    clock_gettime(CLOCK_MONOTONIC, &start);
     /* Aggregate signatures */
     aggrSignaturesInPairs(&agr_sig, &agr_sig_affine, sigs, num_messages);
     /* Aggregate public keys */
     aggrPublicKeysInPairs(&agr_pk, &agr_pk_affine, pks, num_messages);
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    *time = (double)(end.tv_sec - start.tv_sec) * FOR_SEC + (double)(end.tv_nsec - start.tv_nsec);
     /* Verify aggregated signature */
     valid_agr = verifyMessage(msg_agr_bytes, agr_sig_affine, agr_pk_affine);
     if (valid) {
@@ -297,7 +302,7 @@ void signVerifyMessagesInPairs (int num_messages) {
     printf("\n\n");
 }
 
-void signVerifyMessagesByFour (int n) {
+void signVerifyMessagesByFour (int n, double *time) {
     blst_scalar *sks = malloc(n * sizeof(blst_scalar));
     uint8_t (*pk_bytes)[96] = malloc(n * sizeof(*pk_bytes));
     blst_p1 agr_pk, *pks = malloc(n * sizeof(blst_p1));
@@ -334,11 +339,14 @@ void signVerifyMessagesByFour (int n) {
     for (int i = 0; i < n; i++) {
         valid = valid && verifyMessage(msg_bytes[i], sig_affines[i], pk_affines[i]);
     }
+    struct timespec start, end;
+    clock_gettime(CLOCK_MONOTONIC, &start);
     /* Aggregate signatures */
-    aggrSignaturesFourByFour(&agr_sig, &agr_sig_affine, sigs, n);
+    aggrSignaturesInPairs(&agr_sig, &agr_sig_affine, sigs, n);
     /* Aggregate public keys */
     aggrPublicKeysFourByFour(&agr_pk, &agr_pk_affine, pks, n);
-
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    *time = (double)(end.tv_sec - start.tv_sec) * FOR_SEC + (double)(end.tv_nsec - start.tv_nsec);
     if (valid) {
         printf("Signatures are VALID ✅");
     } else {
@@ -355,18 +363,12 @@ void signVerifyMessagesByFour (int n) {
 
 int main() {
     srand(time(0));
-    struct timespec start, end;
-    clock_gettime(CLOCK_MONOTONIC, &start);
-    signVerifyMessagesInPairs(100);
-    clock_gettime(CLOCK_MONOTONIC, &end);
-    double time = (double)(end.tv_sec - start.tv_sec) * FOR_SEC + (double)(end.tv_nsec - start.tv_nsec);
+    double time;
+    signVerifyMessagesInPairs(NUM_MESSAGES, &time);
     printf("signVerifyMessagesInPairs\n\n");
     printf("- Time (nsec): \t%.0f\n", time);
     printf("- Time (sec): \t%.6f\n\n", time / FOR_SEC);
-    clock_gettime(CLOCK_MONOTONIC, &start);
-    signVerifyMessagesByFour(100);
-    clock_gettime(CLOCK_MONOTONIC, &end);
-    time = (double)(end.tv_sec - start.tv_sec) * FOR_SEC + (double)(end.tv_nsec - start.tv_nsec);
+    signVerifyMessagesByFour(NUM_MESSAGES, &time);
     printf("signVerifyMessagesByFour\n");
     printf("- Time (nsec): \t%.0f\n", time);
     printf("- Time (sec): \t%.6f\n", time / FOR_SEC);

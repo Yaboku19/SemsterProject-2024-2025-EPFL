@@ -2,9 +2,9 @@
 #pragma once
 
 #define MULT_VALUE 10
-#define SIZE 10000
+#define SIZE 2
 #define SIZE_SIMD SIZE / 4 + (SIZE % 4 == 0 ? 0 : 1)
-#define NUM_PRINT 10
+#define NUM_PRINT 2
 
 typedef struct {
     uint64_t low;

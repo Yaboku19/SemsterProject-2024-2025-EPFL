@@ -119,6 +119,120 @@ void simdSumArray384_ass(int length, four_uint384_t *upA, four_uint384_t *lowA, 
             upC[i].chunk, lowC[i].chunk, upMask, lowMask);
     }
 }
+
+void simdSubTwoVariables384_ass(uint256_t *upA, uint256_t *lowA, uint256_t *upB, uint256_t *lowB, 
+        uint256_t *upC, uint256_t *lowC, uint256_t *upMask, uint256_t *lowMask) {
+    uint256_t a[12], b[12], sub[12], rest[12];
+    uint256_t *pa = a, *pb = b, *psub = sub, *prest = rest; 
+    asm volatile (
+        "vmovdqu (%[lowMask]), %%ymm4\n"    // ymm4 for lowMask
+        "vmovdqu (%[upMask]), %%ymm5\n"     // ymm5 for upMask
+        "vpxor %%ymm6, %%ymm6, %%ymm6\n"    // ymm6 for rest
+        "vpxor %%ymm7, %%ymm7, %%ymm7\n"    // ymm7 for rest
+        "mov $5, %%rcx\n"                   // loop of 6
+    "1:\n"
+        "vmovdqu (%[lowA]), %%ymm0\n"       // first operand in ymm0
+
+        //---------------
+        "vmovdqu %%ymm0, (%[a])\n"       // print
+        "add $32, %[a]\n"  // print
+        //---------------
+
+        "vmovdqu (%[lowB]), %%ymm1\n"       // second operand in ymm1
+
+        //---------------
+        "vmovdqu %%ymm1, (%[b])\n"       // print
+        "add $32, %[b]\n"  // print
+        //---------------
+
+        "vpsubq %%ymm1, %%ymm0, %%ymm0\n"   // sub in ymm0
+        "vpsubq %%ymm6, %%ymm0, %%ymm0\n"   // sum the rest
+
+        //---------------
+        "vmovdqu %%ymm0, (%[sub])\n"       // print
+        "add $32, %[sub]\n"  // print
+        //---------------
+
+        //---------------
+        "vmovdqu %%ymm6, (%[rest])\n"       // print
+        "add $32, %[rest]\n"  // print
+        //---------------
+
+        "vpand %%ymm0, %%ymm4, %%ymm1\n"    // and with lowerMap
+        "vmovdqu %%ymm1, (%[lowC])\n"       // back in lowC
+
+        "vpand %%ymm0, %%ymm5, %%ymm6\n"    // and with upMask
+        "vpsrlq $32, %%ymm6, %%ymm6\n"      // new rest
+
+        "vpsubq %%ymm6, %%ymm7, %%ymm6\n"   // sub in ymm0
+        "vpand %%ymm6, %%ymm4, %%ymm6\n"    // and with lowerMap
+
+        "vmovdqu (%[upA]), %%ymm1\n"        // first operand in ymm1
+
+        //---------------
+        "vmovdqu %%ymm1, (%[a])\n"       // print
+        "add $32, %[a]\n"  // print
+        //---------------
+
+        "vmovdqu (%[upB]), %%ymm2\n"        // second operand in ymm2
+
+        //---------------
+        "vmovdqu %%ymm2, (%[b])\n"       // print
+        "add $32, %[b]\n"  // print
+        //---------------
+
+        "vpsubq %%ymm2, %%ymm1, %%ymm1\n"   // sum in ymm1
+        "vpsubq %%ymm6, %%ymm1, %%ymm1\n"   // sum the rest
+
+        //---------------
+        "vmovdqu %%ymm1, (%[sub])\n"       // print
+        "add $32, %[sub]\n"  // print
+        //---------------
+
+
+        //---------------
+        "vmovdqu %%ymm6, (%[rest])\n"       // print
+        "add $32, %[rest]\n"  // print
+        //---------------
+
+        "vpand %%ymm1, %%ymm4, %%ymm2\n"    // and with lowerMap
+        "vmovdqu %%ymm2, (%[upC])\n"        // back in upC
+        "vpand %%ymm1, %%ymm5, %%ymm6\n"    // and with upMask
+        "vpsrlq $32, %%ymm6, %%ymm6\n"      // new rest
+
+        "vpsubq %%ymm6, %%ymm7, %%ymm6\n"   // sub in ymm0
+        "vpand %%ymm6, %%ymm4, %%ymm6\n"    // and with lowerMap
+
+        "add $32, %[lowA]\n"                     // new pointers
+        "add $32, %[lowB]\n"
+        "add $32, %[upA]\n"
+        "add $32, %[upB]\n"
+        "add $32, %[lowC]\n"
+        "add $32, %[upC]\n"
+
+        "dec %%rcx\n"                       // decrement counter
+        "jge 1b\n" 
+        : [upA]"+r" (upA), [lowA]"+r" (lowA), [upB]"+r" (upB), [lowB]"+r" (lowB), 
+        [upC]"+r" (upC), [lowC]"+r" (lowC), [upMask]"+r" (upMask), [lowMask]"+r" (lowMask),
+        [a] "+r" (pa), [b] "+r" (pb), [sub] "+r" (psub), [rest] "+r" (prest)
+        :
+        : "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "rcx", "memory"
+    );
+    //checkFourModulo384(upC, lowC);
+    printf("\ta\t\tb\t\tsub\t\t\trest\n");
+    int j = 0;
+    for (int i = 0; i < 12; i++) {
+        printf("%d\t0x%08lx\t0x%08lx\t0x%16lx\t0x%lx\n", i, a[i].chunk[0], b[i].chunk[0], sub[i].chunk[0], rest[i].chunk[0]);
+    }
+}
+
+void simdSubArray384_ass(int length, four_uint384_t *upA, four_uint384_t *lowA, four_uint384_t *upB, four_uint384_t *lowB, 
+    four_uint384_t *upC, four_uint384_t *lowC, uint256_t *upMask, uint256_t *lowMask) {
+for (int i = 0; i < length; i++) {
+    simdSubTwoVariables384_ass(upA[i].chunk, lowA[i].chunk, upB[i].chunk, lowB[i].chunk,
+        upC[i].chunk, lowC[i].chunk, upMask, lowMask);
+}
+}
 /*
 certification:
 - OCP / oldCP? (expensive 2k)
