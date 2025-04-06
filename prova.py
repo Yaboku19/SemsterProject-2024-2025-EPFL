@@ -41,15 +41,11 @@ def montgomery_multiplication(a, b, p):
 
     # Calcola il prodotto t = a * b
     t = a * b
-    print("t = " + hex(t))
 
     # Calcola m = (t * n0) mod R
     m = (t * n0) & (R - 1)
     # Calcola u = (t + m * p) / R
     u = (t + m * p) >> 384
-    print("m * p = " +  hex((m * p)))
-    print("m * p + t= " +  hex((t + m * p)))
-    print("-"*50)
     # Se u >= p, riduci modulo p
     if u >= p:
         u -= p
@@ -57,22 +53,38 @@ def montgomery_multiplication(a, b, p):
     return u
 
 
+# 0d8624350b8f5462e4391a49d2cf71af4ed36c860fda80a5158fda8fbbef155e90189a2624044dcee41b124401c225a9
+# # Modulo p (384 bit)
+# four_aR[0] = 030e4f31_c5c4dbae_46bcae10_5f906f23_26f390f3_5f5d879b_c98ab815_fd03ad66_3209f1c7_fd20b891_9adbcd58_ba1793a8
 
-# Modulo p (384 bit)
+# four_aI[0] = 00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000
+
+# four_bR[0] = 19de415f_86d4c00c_f5a085e7_2cd578ef_6688b55d_1f15c353_274831d8_4fc6ab29_a7422c45_4602ab41_d0236b0e_01f17b10
+
+# four_bI[0] = 16cc4201_954dd270_5cecf6d0_c2a1e17d_90858d7e_0fbdf69c_f7c3a453_ee307707_0c285afd_14e58f12_adc9ff85_23073005
+
+# four_outR[0] = 09d54129_57dc95e5_64653371_7109dabe_9ed111c9_03231ea9_07ee8c37_fdbf37f0_2172dc97_1115443a_053c3b79_5c0cd4ba
 p = 0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab
-a_dash = "0f1fbe0ef913ef77_f35cc0cc24d16fa6_5c6390814f4e2c71_b12bdd1490201e07_05c5f2214542a91e_ffd93a7995b82354".replace("_", "")
-b_dash = "02ec6d906e960b93_45a5fa5428a901c9_a4cf9964ee7c8c24_c56f01f1dc303c59_3e729f97c6a99335_4a729d6536d71097".replace("_", "")
-ris_a = "169bafc1fc4b974a_e0fdd29032746711_ee3c6956ebc1bfd7_c38b614185430837_b401ffcc72ed439b_3a57108ff2b5497a".replace("_", "")
+Ar = int("030e4f31_c5c4dbae_46bcae10_5f906f23_26f390f3_5f5d879b_c98ab815_fd03ad66_3209f1c7_fd20b891_9adbcd58_ba1793a8".replace("_", ""), 16)
+Ai = int("00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000".replace("_", ""), 16)
+Br = int("19de415f_86d4c00c_f5a085e7_2cd578ef_6688b55d_1f15c353_274831d8_4fc6ab29_a7422c45_4602ab41_d0236b0e_01f17b10".replace("_", ""), 16)
+Bi = int("16cc4201_954dd270_5cecf6d0_c2a1e17d_90858d7e_0fbdf69c_f7c3a453_ee307707_0c285afd_14e58f12_adc9ff85_23073005".replace("_", ""), 16)
+
 # Operandi a e b (384 bit ciascuno)
-a = int(a_dash, 16)
-b = int(b_dash, 16)
 
 # Esegui la moltiplicazione di Montgomery
-result = montgomery_multiplication(a, b, p)
+ac = montgomery_multiplication(Ar, Br, p)
+bd = montgomery_multiplication(Ai, Bi, p)
+ad = montgomery_multiplication(Ar, Bi, p)
+bc = montgomery_multiplication(Ai, Br, p)
 
 # Stampa il risultato
-print(f"Risultato c: {hex(result)}")
-print(f"Risultato a: 0x{ris_a}")
+print(f"ac: {hex((ac))}\n")
+print(f"bd: {hex((bd))}\n")
+print(f"ad: {hex((ad))}\n")
+print(f"bc: {hex((bc))}\n")
+print(f"ac - bd: {hex((ac - bd))}")
+
 #   0x169bafc1fc4b974a_e0fdd29032746711_ee3c6956ebc1bfd7_c38b614185430837_b401ffcc72ed439b_3a57108ff2b5497a
 #   0x169bafc1fc4b974a_e0fdd29032746711_ee3c6956ebc1bfd7_c38b614185430837_b401ffcc72ed439b_3a57108ff2b5497a
 # 0x1_0000000000000000_0000000000000000_0000000000000000_0000000000000000_0000000000000000_0000000000000000 R
