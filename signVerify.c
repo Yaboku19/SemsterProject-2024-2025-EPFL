@@ -342,7 +342,7 @@ void signVerifyMessagesByFour (int n, double *time) {
     struct timespec start, end;
     clock_gettime(CLOCK_MONOTONIC, &start);
     /* Aggregate signatures */
-    aggrSignaturesInPairs(&agr_sig, &agr_sig_affine, sigs, n);
+    aggrSignaturesFourByFour(&agr_sig, &agr_sig_affine, sigs, n);
     /* Aggregate public keys */
     aggrPublicKeysFourByFour(&agr_pk, &agr_pk_affine, pks, n);
     clock_gettime(CLOCK_MONOTONIC, &end);

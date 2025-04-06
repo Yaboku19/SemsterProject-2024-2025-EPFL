@@ -477,14 +477,6 @@ static inline void print_fp(vec384 *out, char *str) {
     printf("\n");
 }
 
-static inline void copy_fp (vec384 *out, vec384 *copy) {
-    for(int j = 0; j < 4; j++) {
-        for (int i = 0; i < 6; i++) {
-            out[j][i] = copy[j][i];
-        }
-    }
-}
-
 static inline void sub_fp(vec384 ret, const vec384 a, const vec384 b)
 {   sub_mod_384(ret, a, b, BLS12_381_P);   }
 
@@ -585,19 +577,28 @@ static inline void simd_sub_fp2(vec384x *out, vec384x *a, vec384x *b) {
     }
 }
 
-static inline void copy_fp2 (vec384x *out, vec384x *copy) {
-    for(int j = 0; j < 4; j++) {
-        for (int i = 0; i < 6; i++) {
-            out[j][0][i] = copy[j][0][i];
-            out[j][1][i] = copy[j][1][i];
+static inline void simd_mul_fp2(vec384x *out, vec384x *a, vec384x *b) {
+    vec384 aR[4], aI[4], bR[4], bI[4], outR[4], outI[4], ac[4], bd[4], ad[4], bc[4];
+    for(int i = 0; i < 4; i++) {
+        for (int j = 0; j < 6; j++) {
+            aR[i][j] = a[i][0][j];
+            aI[i][j] = a[i][1][j];
+            bR[i][j] = b[i][0][j];
+            bI[i][j] = b[i][1][j];
         }
     }
-}
-
-static inline void simd_mul_fp2(vec384x *out, vec384x *a, vec384x *b) {
-    out = a;
-    a = b;
-    b = out;
+    simd_mul_fp(ac, aR, bR);
+    simd_mul_fp(bd, aI, bI);
+    simd_mul_fp(ad, aR, bI);
+    simd_mul_fp(bc, aI, bR);
+    simd_sub_fp(outR, ac, bd);
+    simd_add_fp(outI, ad, bc);
+    for(int i = 0; i < 4; i++) {
+        for (int j = 0; j < 6; j++) {
+            out[i][0][j] = outR[i][j];
+            out[i][1][j] = outI[i][j];
+        }
+    }
 }
 
 static inline void mul_by_3_fp2(vec384x ret, const vec384x a)
