@@ -251,12 +251,7 @@ static void ptype##_add(ptype *out, const ptype *p1, const ptype *p2) \
     memcpy(to[2].coordinate, from[2], size); \
     memcpy(to[3].coordinate, from[3], size); \
 })
-
-/* ciao */
-/* mul_##field(S1[0], Z2Z2[0], p2[0].Z);            Z2_1 * Z2Z2_1 */ \
-/*     mul_##field(S1[1], Z2Z2[1], p2[1].Z);           Z2_2 * Z2Z2_2 */ \
-/*     mul_##field(S1[2], Z2Z2[2], p2[2].Z);            Z2_3 * Z2Z2_3 */ \
-/*     mul_##field(S1[3], Z2Z2[3], p2[3].Z);            Z2_4 * Z2Z2_4 */ \
+/* ciao 12 */
 #define POINT_ADD_IMPL_FOUR(ptype, bits, field) \
 static void ptype##_add_four(ptype *out, ptype *p1, ptype *p2) \
 { \
@@ -279,113 +274,51 @@ static void ptype##_add_four(ptype *out, ptype *p1, ptype *p2) \
     p1inf[1] = vec_is_zero(p1z[1], sizeof(p1z[1])); \
     p1inf[2] = vec_is_zero(p1z[2], sizeof(p1z[2])); \
     p1inf[3] = vec_is_zero(p1z[3], sizeof(p1z[3])); \
+    simd_mul_##field(Z1Z1, p1z, p1z);                /* Z1Z1 = Z1 ^ 2 */ \
 \
-    sqr_##field(Z1Z1[0], p1z[0]);                   /* Z1Z1_1 = Z1_1 ^ 2 */ \
-    sqr_##field(Z1Z1[1], p1z[1]);                   /* Z1Z1_2 = Z1_2 ^ 2 */ \
-    sqr_##field(Z1Z1[2], p1z[2]);                   /* Z1Z1_3 = Z1_3 ^ 2 */ \
-    sqr_##field(Z1Z1[3], p1z[3]);                   /* Z1Z1_4 = Z1_4 ^ 2 */ \
-\
-    mul_##field(p3z[0], Z1Z1[0], p1z[0]);           /* Z1_1 * Z1Z1_1 */ \
-    mul_##field(p3z[1], Z1Z1[1], p1z[1]);           /* Z1_2 * Z1Z1_2 */ \
-    mul_##field(p3z[2], Z1Z1[2], p1z[2]);           /* Z1_3 * Z1Z1_3 */ \
-    mul_##field(p3z[3], Z1Z1[3], p1z[3]);           /* Z1_4 * Z1Z1_4 */ \
-\
-    mul_##field(p3z[0], p3z[0], p2y[0]);            /* S2_1 = Y2_1 * Z1_1 * Z1Z1_1 */ \
-    mul_##field(p3z[1], p3z[1], p2y[1]);            /* S2_2 = Y2_2 * Z1_2 * Z1Z1_2 */ \
-    mul_##field(p3z[2], p3z[2], p2y[2]);            /* S2_3 = Y2_3 * Z1_3 * Z1Z1_3 */ \
-    mul_##field(p3z[3], p3z[3], p2y[3]);            /* S2_4 = Y2_4 * Z1_4 * Z1Z1_4 */ \
+    simd_mul_##field(p3z, Z1Z1, p1z);                /* Z1 * Z1Z1 */ \
+    simd_mul_##field(p3z, p3z, p2y);                 /* S2 = Y2 * Z1 * Z1Z1 */ \
 \
     p2inf[0] = vec_is_zero(p2z[0], sizeof(p2z[0])); \
     p2inf[1] = vec_is_zero(p2z[1], sizeof(p2z[1])); \
     p2inf[2] = vec_is_zero(p2z[2], sizeof(p2z[2])); \
     p2inf[3] = vec_is_zero(p2z[3], sizeof(p2z[3])); \
+    simd_mul_##field(Z2Z2, p2z, p2z);               /* Z2Z2 = Z2 ^ 2 */ \
 \
-    sqr_##field(Z2Z2[0], p2z[0]);                   /* Z2Z2_1 = Z2_1 ^ 2 */ \
-    sqr_##field(Z2Z2[1], p2z[1]);                   /* Z2Z2_2 = Z2_2 ^ 2 */ \
-    sqr_##field(Z2Z2[2], p2z[2]);                   /* Z2Z2_3 = Z2_3 ^ 2 */ \
-    sqr_##field(Z2Z2[3], p2z[3]);                   /* Z2Z2_4 = Z2_4 ^ 2 */ \
+    simd_mul_##field(S1, Z2Z2, p2z);                /* Z2 * Z2Z2 */ \
+    simd_mul_##field(S1, S1, p1y);                  /* S1 = Y1 * Z2 * Z2Z2 */ \
 \
-    mul_##field(S1[0], Z2Z2[0], p2z[0]);            /* Z2_1 * Z2Z2_1 */ \
-    mul_##field(S1[1], Z2Z2[1], p2z[1]);            /* Z2_2 * Z2Z2_2 */ \
-    mul_##field(S1[2], Z2Z2[2], p2z[2]);            /* Z2_3 * Z2Z2_3 */ \
-    mul_##field(S1[3], Z2Z2[3], p2z[3]);            /* Z2_4 * Z2Z2_4 */ \
-\
-    mul_##field(S1[0], S1[0], p1y[0]);              /* S1_1 = Y1_1 * Z2_1 * Z2Z2_1 */ \
-    mul_##field(S1[1], S1[1], p1y[1]);              /* S1_2 = Y1_2 * Z2_2 * Z2Z2_2 */ \
-    mul_##field(S1[2], S1[2], p1y[2]);              /* S1_3 = Y1_3 * Z2_3 * Z2Z2_3 */ \
-    mul_##field(S1[3], S1[3], p1y[3]);              /* S1_4 = Y1_4 * Z2_4 * Z2Z2_4 */ \
-\
-    simd_sub_##field(p3z, p3z, S1); \
-\
+    simd_sub_##field(p3z, p3z, S1);                 /* S2 - S1 */ \
     simd_add_##field(p3z, p3z, p3z);                /* r = 2 * (S2 - S1) */ \
 \
-    mul_##field(U1[0], p1x[0], Z2Z2[0]);            /* U1_1 = X1_1 * Z2Z2_1 */ \
-    mul_##field(U1[1], p1x[1], Z2Z2[1]);            /* U1_2 = X1_2 * Z2Z2_2 */ \
-    mul_##field(U1[2], p1x[2], Z2Z2[2]);            /* U1_3 = X1_3 * Z2Z2_3 */ \
-    mul_##field(U1[3], p1x[3], Z2Z2[3]);            /* U1_4 = X1_4 * Z2Z2_4 */ \
-\
-    mul_##field(H[0],  p2x[0], Z1Z1[0]);            /* U2_1 = X2_1 * Z1Z1_1 */ \
-    mul_##field(H[1],  p2x[1], Z1Z1[1]);            /* U2_2 = X2_2 * Z1Z1_2 */ \
-    mul_##field(H[2],  p2x[2], Z1Z1[2]);            /* U2_3 = X2_3 * Z1Z1_3 */ \
-    mul_##field(H[3],  p2x[3], Z1Z1[3]);            /* U2_4 = X2_4 * Z1Z1_4 */ \
+    simd_mul_##field(U1, p1x, Z2Z2);                /* U1 = X1 * Z2Z2 */ \
+    simd_mul_##field(H, p2x, Z1Z1);                 /* U2 = X2 * Z1Z1 */ \
 \
     simd_sub_##field(H, H, U1);                     /* H = U2 - U1 */\
 \
     simd_add_##field(I, H, H);                      /* 2 * H */ \
+    simd_mul_##field(I, I, I);                      /* I = ( 2 * H ) ^ 2 */ \
 \
-    sqr_##field(I[0], I[0]);                        /* I_1 = ( 2 * H_1 ) ^ 2 */ \
-    sqr_##field(I[1], I[1]);                        /* I_2 = ( 2 * H_2 ) ^ 2 */ \
-    sqr_##field(I[2], I[2]);                        /* I_3 = ( 2 * H_3 ) ^ 2 */ \
-    sqr_##field(I[3], I[3]);                        /* I_4 = ( 2 * H_4 ) ^ 2 */ \
+    simd_mul_##field(J, H, I);                      /* J = H * I */ \
+    simd_mul_##field(S1, S1, J);                    /* S1 * J */ \
 \
-    mul_##field(J[0], H[0], I[0]);                  /* J_1 = H_1 * I_1 */ \
-    mul_##field(J[1], H[1], I[1]);                  /* J_2 = H_2 * I_2 */ \
-    mul_##field(J[2], H[2], I[2]);                  /* J_3 = H_3 * I_3 */ \
-    mul_##field(J[3], H[3], I[3]);                  /* J_4 = H_4 * I_4 */ \
+    simd_mul_##field(p3y, U1, I);                   /* V = U1 * I */ \
 \
-    mul_##field(S1[0], S1[0], J[0]);                /* S1_1 * J_1 */ \
-    mul_##field(S1[1], S1[1], J[1]);                /* S1_2 * J_2 */ \
-    mul_##field(S1[2], S1[2], J[2]);                /* S1_3 * J_3 */ \
-    mul_##field(S1[3], S1[3], J[3]);                /* S1_4 * J_4 */ \
-\
-    mul_##field(p3y[0], U1[0], I[0]);               /* V_1 = U1_1 * I_1 */ \
-    mul_##field(p3y[1], U1[1], I[1]);               /* V_2 = U1_2 * I_2 */ \
-    mul_##field(p3y[2], U1[2], I[2]);               /* V_3 = U1_3 * I_3 */ \
-    mul_##field(p3y[3], U1[3], I[3]);               /* V_4 = U1_4 * I_4 */ \
-\
-    sqr_##field(p3x[0], p3z[0]);                    /* r_1 ^ 2 */ \
-    sqr_##field(p3x[1], p3z[1]);                    /* r_2 ^ 2 */ \
-    sqr_##field(p3x[2], p3z[2]);                    /* r_3 ^ 2 */ \
-    sqr_##field(p3x[3], p3z[3]);                    /* r_4 ^ 2 */ \
-\
+    simd_mul_##field(p3x, p3z, p3z);                /* r ^ 2 */ \
     simd_sub_##field(p3x, p3x, J);                  /* r ^ 2 - J */ \
     simd_sub_##field(p3x, p3x, p3y); \
     simd_sub_##field(p3x, p3x, p3y);                /* X3 = r ^ 2 - J - 2 * V */ \
 \
     simd_sub_##field(p3y, p3y, p3x);                /* V - X3 */ \
-\
-    mul_##field(p3y[0], p3y[0], p3z[0]);            /* r_1 * ( V_1 - X3_1 ) */ \
-    mul_##field(p3y[1], p3y[1], p3z[1]);            /* r_2 * ( V_2 - X3_2 ) */ \
-    mul_##field(p3y[2], p3y[2], p3z[2]);            /* r_3 * ( V_3 - X3_3 ) */ \
-    mul_##field(p3y[3], p3y[3], p3z[3]);            /* r_4 * ( V_4 - X3_4 ) */ \
-\
+    simd_mul_##field(p3y, p3y, p3z);                /* r * ( V - X3 ) */ \
     simd_sub_##field(p3y, p3y, S1); \
     simd_sub_##field(p3y, p3y, S1);                 /* Y3 = r * ( V - X3 ) - 2 * S1 * J */ \
 \
     simd_add_##field(p3z, p1z, p2z);                /* Z1 + Z2 */ \
-\
-    sqr_##field(p3z[0], p3z[0]);                    /* (Z1_1 + Z2_1) ^ 2 */ \
-    sqr_##field(p3z[1], p3z[1]);                    /* (Z1_2 + Z2_2) ^ 2 */ \
-    sqr_##field(p3z[2], p3z[2]);                    /* (Z1_3 + Z2_3) ^ 2 */ \
-    sqr_##field(p3z[3], p3z[3]);                    /* (Z1_4 + Z2_4) ^ 2 */ \
-\
+    simd_mul_##field(p3z, p3z, p3z);                /* (Z1 + Z2) ^ 2 */ \
     simd_sub_##field(p3z, p3z, Z1Z1);               /* ( Z1 + Z2 ) ^ 2 - Z1Z1 */ \
     simd_sub_##field(p3z, p3z, Z2Z2);               /* ( Z1 + Z2 ) ^ 2 - Z1Z1 - Z2Z2 */ \
-\
-    mul_##field(p3z[0], p3z[0], H[0]);              /* Z3_1 = ( ( Z1_1 + Z2_1 ) ^ 2 - Z1Z1_1 - Z2Z2_1) * H_1 */ \
-    mul_##field(p3z[1], p3z[1], H[1]);              /* Z3_2 = ( ( Z1_2 + Z2_2 ) ^ 2 - Z1Z1_2 - Z2Z2_2) * H_2 */ \
-    mul_##field(p3z[2], p3z[2], H[2]);              /* Z3_3 = ( ( Z1_3 + Z2_3 ) ^ 2 - Z1Z1_3 - Z2Z2_3) * H_3 */ \
-    mul_##field(p3z[3], p3z[3], H[3]);              /* Z3_4 = ( ( Z1_4 + Z2_4 ) ^ 2 - Z1Z1_4 - Z2Z2_4) * H_4 */ \
+    simd_mul_##field(p3z, p3z, H);                  /* Z3 = ( ( Z1 + Z2 ) ^ 2 - Z1Z1 - Z2Z2) * H */ \
 \
     COPY_FROM_ARRAY_TO_POINT(p1, p1x, X, sizeof(vec##bits));\
     COPY_FROM_ARRAY_TO_POINT(p1, p1y, Y, sizeof(vec##bits));\

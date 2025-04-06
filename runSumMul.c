@@ -27,34 +27,21 @@ int main(int argc, char* argv[]) {
     /* Initialization of all the memory. */
     generate_large_number384(a, SIZE, (unsigned int)rand());
     generate_large_number384(b, SIZE, (unsigned int)rand());
+    // a_dash = "0f1fbe0ef913ef77_f35cc0cc24d16fa6_5c6390814f4e2c71_b12bdd1490201e07_05c5f2214542a91e_ffd93a7995b82354".replace("_", "")
+    // b_dash = "02ec6d906e960b93_45a5fa5428a901c9_a4cf9964ee7c8c24_c56f01f1dc303c59_3e729f97c6a99335_4a729d6536d71097".replace("_", "")
+    a[0].chunk[0] = 0xffd93a7995b82354;
+    a[0].chunk[1] = 0x05c5f2214542a91e;
+    a[0].chunk[2] = 0xb12bdd1490201e07;
+    a[0].chunk[3] = 0x5c6390814f4e2c71;
+    a[0].chunk[4] = 0xf35cc0cc24d16fa6;
+    a[0].chunk[5] = 0x0f1fbe0ef913ef77;
 
-    a[0].chunk[0] = 0xd34b7babb7a5545c;
-    a[0].chunk[1] = 0x96db91722868700d;
-    a[0].chunk[2] = 0xf7b1464746447580;
-    a[0].chunk[3] = 0x70875ac2bec64327;
-    a[0].chunk[4] = 0x9817c17ea10c4154;
-    a[0].chunk[5] = 0x1784552029e56a41;
-
-    a[1].chunk[0] = 0x9f800e327413c2c0;
-    a[1].chunk[1] = 0xfebc0b207f15d1be;
-    a[1].chunk[2] = 0x64aa769ac305ddcd;
-    a[1].chunk[3] = 0xa44b17f06c1c459f;
-    a[1].chunk[4] = 0x013abd6d41881691;
-    a[1].chunk[5] = 0x0cb53e8a9ea119fc;
-
-    b[0].chunk[0] = 0x9f800e327413c2c0;
-    b[0].chunk[1] = 0xfebc0b207f15d1be;
-    b[0].chunk[2] = 0x64aa769ac305ddcd;
-    b[0].chunk[3] = 0xa44b17f06c1c459f;
-    b[0].chunk[4] = 0x013abd6d41881691;
-    b[0].chunk[5] = 0x0cb53e8a9ea119fc;
-
-    b[1].chunk[0] = 0xf77c51155b9310eb;
-    b[1].chunk[1] = 0x344bea1fa6a8f0f7;
-    b[1].chunk[2] = 0x4f2b37769e531e7f;
-    b[1].chunk[3] = 0x11726bfd55027eff;
-    b[1].chunk[4] = 0x1eeea475ef7996f7;
-    b[1].chunk[5] = 0x071806aac9c82e66;
+    b[0].chunk[0] = 0x4a729d6536d71097;
+    b[0].chunk[1] = 0x3e729f97c6a99335;
+    b[0].chunk[2] = 0xc56f01f1dc303c59;
+    b[0].chunk[3] = 0xa4cf9964ee7c8c24;
+    b[0].chunk[4] = 0x45a5fa5428a901c9;
+    b[0].chunk[5] = 0x02ec6d906e960b93;
 
     generate_number_384_v2(upB, SIZE_SIMD, b, 0);
     generate_number_384_v2(lowB, SIZE_SIMD, b, 1);
@@ -70,9 +57,9 @@ int main(int argc, char* argv[]) {
     /* Creation of the masks */
     uint256_t upMask = {0xFFFFFFFF00000000, 0xFFFFFFFF00000000, 0xFFFFFFFF00000000, 0xFFFFFFFF00000000};
     uint256_t lowMask = {0x00000000FFFFFFFF, 0x00000000FFFFFFFF, 0x00000000FFFFFFFF,0x00000000FFFFFFFF};
-    // Sums
-    //printf("------------------------------------------------------- [ SUM ] -------------------------------------------------------\n\n");
-    // /* Run of normalSumArray384 over 384 vector. */
+    /* Sums */
+    // printf("------------------------------------------------------- [ SUM ] -------------------------------------------------------\n\n");
+    /* Run of normalSumArray384 over 384 vector. */
     struct timespec start, end;
     // clock_gettime(CLOCK_MONOTONIC, &start);
     // normalSumArray384(a, b, c, SIZE);
@@ -95,13 +82,13 @@ int main(int argc, char* argv[]) {
     // clock_gettime(CLOCK_MONOTONIC, &end);
     // printFunction384_v2("SimdSumArray384_ass", (double)(end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec), upC, lowC);
     // /* Resetting c */
-    generate_number_384_v2(upC, SIZE_SIMD, NULL, 2);
-    generate_number_384_v2(lowC, SIZE_SIMD, NULL, 2);
-    /* sub */
-    clock_gettime(CLOCK_MONOTONIC, &start);
-    simdSubArray384_ass(SIZE_SIMD, upA, lowA, upB, lowB, upC, lowC, &upMask, &lowMask);
-    clock_gettime(CLOCK_MONOTONIC, &end);
-    printFunction384_v2("SimdSubArray384_ass", (double)(end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec), upC, lowC);
+    // generate_number_384_v2(upC, SIZE_SIMD, NULL, 2);
+    // generate_number_384_v2(lowC, SIZE_SIMD, NULL, 2);
+    // /* sub */
+    // clock_gettime(CLOCK_MONOTONIC, &start);
+    // simdSubArray384_ass(SIZE_SIMD, upA, lowA, upB, lowB, upC, lowC, &upMask, &lowMask);
+    // clock_gettime(CLOCK_MONOTONIC, &end);
+    // printFunction384_v2("SimdSubArray384_ass", (double)(end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec), upC, lowC);
     // // Moltiplication
     // printf("-------------------------------------------------- [ Moltiplication ] -------------------------------------------------\n\n");
     // /* Resetting c. */
@@ -134,6 +121,11 @@ int main(int argc, char* argv[]) {
     // clock_gettime(CLOCK_MONOTONIC, &end);
     // printFunction384_v2("mul384Simd_ass", (double)(end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec), upC, lowC);
     // /* Free memory*/
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    mul384SimdMon_ass(lowA, upA, lowB, upB, lowC, upC, &upMask, &lowMask, SIZE_SIMD);
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    printFunction384_v2("mul384SimdMon_ass", (double)(end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec), upC, lowC);
+    printf("- ris_a: 0x169bafc1fc4b974a_e0fdd29032746711_ee3c6956ebc1bfd7_c38b614185430837_b401ffcc72ed439b_3a57108ff2b5497a\n");
     free(a);
     free(b);
     free(c);
