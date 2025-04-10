@@ -238,51 +238,91 @@ static void ptype##_add(ptype *out, const ptype *p1, const ptype *p2) \
     vec_select(out, p2, &p3, sizeof(ptype), p1inf); \
 }
 
-#define COPY_FROM_POINT_TO_ARRAY(to, from, coordinate, size) ({ \
-    memcpy(to[0], from[0].coordinate, size); \
-    memcpy(to[1], from[1].coordinate, size); \
-    memcpy(to[2], from[2].coordinate, size); \
-    memcpy(to[3], from[3].coordinate, size); \
+#define COPY_FROM_POINT_TO_ARRAY_384(to, from, coordinate) ({ \
+        for (int i = 0; i < 6; i++) { \
+            to[i * 2][0] = from[0].coordinate[i] & 0xFFFFFFFF; \
+            to[i * 2][1] = from[1].coordinate[i] & 0xFFFFFFFF; \
+            to[i * 2][2] = from[2].coordinate[i] & 0xFFFFFFFF; \
+            to[i * 2][3] = from[3].coordinate[i] & 0xFFFFFFFF; \
+            to[i * 2 + 1][0] = from[0].coordinate[i] >> 32; \
+            to[i * 2 + 1][1] = from[1].coordinate[i] >> 32; \
+            to[i * 2 + 1][2] = from[2].coordinate[i] >> 32; \
+            to[i * 2 + 1][3] = from[3].coordinate[i] >> 32; \
+        } \
 })
 
-#define COPY_FROM_ARRAY_TO_POINT(to, from, coordinate, size) ({ \
-    memcpy(to[0].coordinate, from[0], size); \
-    memcpy(to[1].coordinate, from[1], size); \
-    memcpy(to[2].coordinate, from[2], size); \
-    memcpy(to[3].coordinate, from[3], size); \
+#define COPY_FROM_ARRAY_TO_POINT_384(to, from, coordinate) ({ \
+    for (int i = 0; i < 4; i++) { \
+        to[i].coordinate[0] = from[0][i] | (from[1][i] << 32); \
+        to[i].coordinate[1] = from[2][i] | (from[3][i] << 32); \
+        to[i].coordinate[2] = from[4][i] | (from[5][i] << 32); \
+        to[i].coordinate[3] = from[6][i] | (from[7][i] << 32); \
+        to[i].coordinate[4] = from[8][i] | (from[9][i] << 32); \
+        to[i].coordinate[5] = from[10][i] | (from[11][i] << 32); \
+    } \
 })
-/* ciao 12 */
+
+#define COPY_FROM_POINT_TO_ARRAY_384x(to, from, coordinate) ({ \
+    for (int j = 0; j < 2; j++ ) { \
+        for (int i = 0; i < 6; i++) { \
+            to[j][i * 2][0] = from[0].coordinate[j][i] & 0xFFFFFFFF; \
+            to[j][i * 2][1] = from[1].coordinate[j][i] & 0xFFFFFFFF; \
+            to[j][i * 2][2] = from[2].coordinate[j][i] & 0xFFFFFFFF; \
+            to[j][i * 2][3] = from[3].coordinate[j][i] & 0xFFFFFFFF; \
+            to[j][i * 2 + 1][0] = from[0].coordinate[j][i] >> 32; \
+            to[j][i * 2 + 1][1] = from[1].coordinate[j][i] >> 32; \
+            to[j][i * 2 + 1][2] = from[2].coordinate[j][i] >> 32; \
+            to[j][i * 2 + 1][3] = from[3].coordinate[j][i] >> 32; \
+        } \
+    } \
+})
+
+#define COPY_FROM_ARRAY_TO_POINT_384x(to, from, coordinate) ({ \
+    for (int j = 0; j < 2; j++) { \
+        for (int i = 0; i < 4; i++) { \
+            to[i].coordinate[j][0] = from[j][0][i] | (from[j][1][i] << 32); \
+            to[i].coordinate[j][1] = from[j][2][i] | (from[j][3][i] << 32); \
+            to[i].coordinate[j][2] = from[j][4][i] | (from[j][5][i] << 32); \
+            to[i].coordinate[j][3] = from[j][6][i] | (from[j][7][i] << 32); \
+            to[i].coordinate[j][4] = from[j][8][i] | (from[j][9][i] << 32); \
+            to[i].coordinate[j][5] = from[j][10][i] | (from[j][11][i] << 32); \
+        } \
+    } \
+})
+
 #define POINT_ADD_IMPL_FOUR(ptype, bits, field) \
 static void ptype##_add_four(ptype *out, ptype *p1, ptype *p2) \
 { \
-    ptype p3[4] = {0}; \
-    vec##bits Z1Z1[4], Z2Z2[4], U1[4], S1[4], H[4], I[4], J[4]; \
-    vec##bits p1x[4], p1y[4], p1z[4]; \
-    vec##bits p2x[4], p2y[4], p2z[4]; \
-    vec##bits p3x[4], p3y[4], p3z[4]; \
+    ptype p3[4] = {0}, p1c[4], p2c[4]; \
+    fourVec##bits Z1Z1, Z2Z2, U1, S1, H, I, J; \
+    fourVec##bits p1x, p1y, p1z; \
+    fourVec##bits p2x, p2y, p2z; \
+    fourVec##bits p3x, p3y, p3z; \
     bool_t p1inf[4], p2inf[4]; \
 \
-    COPY_FROM_POINT_TO_ARRAY(p1x, p1, X, sizeof(vec##bits)); \
-    COPY_FROM_POINT_TO_ARRAY(p1y, p1, Y, sizeof(vec##bits)); \
-    COPY_FROM_POINT_TO_ARRAY(p1z, p1, Z, sizeof(vec##bits)); \
+    p1inf[0] = vec_is_zero(p1[0].Z, sizeof(p1[0].Z)); \
+    p1inf[1] = vec_is_zero(p1[1].Z, sizeof(p1[1].Z)); \
+    p1inf[2] = vec_is_zero(p1[2].Z, sizeof(p1[2].Z)); \
+    p1inf[3] = vec_is_zero(p1[3].Z, sizeof(p1[3].Z)); \
 \
-    COPY_FROM_POINT_TO_ARRAY(p2x, p2, X, sizeof(vec##bits)); \
-    COPY_FROM_POINT_TO_ARRAY(p2y, p2, Y, sizeof(vec##bits)); \
-    COPY_FROM_POINT_TO_ARRAY(p2z, p2, Z, sizeof(vec##bits)); \
+    p2inf[0] = vec_is_zero(p2[0].Z, sizeof(p2[0].Z)); \
+    p2inf[1] = vec_is_zero(p2[1].Z, sizeof(p2[1].Z)); \
+    p2inf[2] = vec_is_zero(p2[2].Z, sizeof(p2[2].Z)); \
+    p2inf[3] = vec_is_zero(p2[3].Z, sizeof(p2[3].Z)); \
 \
-    p1inf[0] = vec_is_zero(p1z[0], sizeof(p1z[0])); \
-    p1inf[1] = vec_is_zero(p1z[1], sizeof(p1z[1])); \
-    p1inf[2] = vec_is_zero(p1z[2], sizeof(p1z[2])); \
-    p1inf[3] = vec_is_zero(p1z[3], sizeof(p1z[3])); \
+    COPY_FROM_POINT_TO_ARRAY_##bits(p1x, p1, X); \
+    COPY_FROM_POINT_TO_ARRAY_##bits(p1y, p1, Y); \
+    COPY_FROM_POINT_TO_ARRAY_##bits(p1z, p1, Z); \
+\
+    COPY_FROM_POINT_TO_ARRAY_##bits(p2x, p2, X); \
+    COPY_FROM_POINT_TO_ARRAY_##bits(p2y, p2, Y); \
+    COPY_FROM_POINT_TO_ARRAY_##bits(p2z, p2, Z); \
+\
     simd_mul_##field(Z1Z1, p1z, p1z);                /* Z1Z1 = Z1 ^ 2 */ \
 \
     simd_mul_##field(p3z, Z1Z1, p1z);                /* Z1 * Z1Z1 */ \
     simd_mul_##field(p3z, p3z, p2y);                 /* S2 = Y2 * Z1 * Z1Z1 */ \
 \
-    p2inf[0] = vec_is_zero(p2z[0], sizeof(p2z[0])); \
-    p2inf[1] = vec_is_zero(p2z[1], sizeof(p2z[1])); \
-    p2inf[2] = vec_is_zero(p2z[2], sizeof(p2z[2])); \
-    p2inf[3] = vec_is_zero(p2z[3], sizeof(p2z[3])); \
     simd_mul_##field(Z2Z2, p2z, p2z);               /* Z2Z2 = Z2 ^ 2 */ \
 \
     simd_mul_##field(S1, Z2Z2, p2z);                /* Z2 * Z2Z2 */ \
@@ -320,29 +360,28 @@ static void ptype##_add_four(ptype *out, ptype *p1, ptype *p2) \
     simd_sub_##field(p3z, p3z, Z2Z2);               /* ( Z1 + Z2 ) ^ 2 - Z1Z1 - Z2Z2 */ \
     simd_mul_##field(p3z, p3z, H);                  /* Z3 = ( ( Z1 + Z2 ) ^ 2 - Z1Z1 - Z2Z2) * H */ \
 \
-    COPY_FROM_ARRAY_TO_POINT(p1, p1x, X, sizeof(vec##bits));\
-    COPY_FROM_ARRAY_TO_POINT(p1, p1y, Y, sizeof(vec##bits));\
-    COPY_FROM_ARRAY_TO_POINT(p1, p1z, Z, sizeof(vec##bits));\
+    COPY_FROM_ARRAY_TO_POINT_##bits(p1c, p1x, X); \
+    COPY_FROM_ARRAY_TO_POINT_##bits(p1c, p1y, Y); \
+    COPY_FROM_ARRAY_TO_POINT_##bits(p1c, p1z, Z); \
 \
-    COPY_FROM_ARRAY_TO_POINT(p2, p2x, X, sizeof(vec##bits));\
-    COPY_FROM_ARRAY_TO_POINT(p2, p2y, Y, sizeof(vec##bits));\
-    COPY_FROM_ARRAY_TO_POINT(p2, p2z, Z, sizeof(vec##bits));\
+    COPY_FROM_ARRAY_TO_POINT_##bits(p2c, p2x, X); \
+    COPY_FROM_ARRAY_TO_POINT_##bits(p2c, p2y, Y); \
+    COPY_FROM_ARRAY_TO_POINT_##bits(p2c, p2z, Z); \
 \
-    COPY_FROM_ARRAY_TO_POINT(p3, p3x, X, sizeof(vec##bits));\
-    COPY_FROM_ARRAY_TO_POINT(p3, p3y, Y, sizeof(vec##bits));\
-    COPY_FROM_ARRAY_TO_POINT(p3, p3z, Z, sizeof(vec##bits));\
+    COPY_FROM_ARRAY_TO_POINT_##bits(p3, p3x, X); \
+    COPY_FROM_ARRAY_TO_POINT_##bits(p3, p3y, Y); \
+    COPY_FROM_ARRAY_TO_POINT_##bits(p3, p3z, Z); \
 \
-    vec_select(&p3[0], &p1[0], &p3[0], sizeof(ptype), p2inf[0]); \
-    vec_select(&p3[1], &p1[1], &p3[1], sizeof(ptype), p2inf[1]); \
-    vec_select(&p3[2], &p1[2], &p3[2], sizeof(ptype), p2inf[2]); \
-    vec_select(&p3[3], &p1[3], &p3[3], sizeof(ptype), p2inf[3]); \
+    vec_select(&p3[0], &p1c[0], &p3[0], sizeof(ptype), p2inf[0]); \
+    vec_select(&p3[1], &p1c[1], &p3[1], sizeof(ptype), p2inf[1]); \
+    vec_select(&p3[2], &p1c[2], &p3[2], sizeof(ptype), p2inf[2]); \
+    vec_select(&p3[3], &p1c[3], &p3[3], sizeof(ptype), p2inf[3]); \
 \
-    vec_select(&out[0], &p2[0], &p3[0], sizeof(ptype), p1inf[0]); \
-    vec_select(&out[1], &p2[1], &p3[1], sizeof(ptype), p1inf[1]); \
-    vec_select(&out[2], &p2[2], &p3[2], sizeof(ptype), p1inf[2]); \
-    vec_select(&out[3], &p2[3], &p3[3], sizeof(ptype), p1inf[3]); \
+    vec_select(&out[0], &p2c[0], &p3[0], sizeof(ptype), p1inf[0]); \
+    vec_select(&out[1], &p2c[1], &p3[1], sizeof(ptype), p1inf[1]); \
+    vec_select(&out[2], &p2c[2], &p3[2], sizeof(ptype), p1inf[2]); \
+    vec_select(&out[3], &p2c[3], &p3[3], sizeof(ptype), p1inf[3]); \
 }
-
 
 /*
  * https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl

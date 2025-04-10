@@ -51,7 +51,9 @@ typedef limb_t vec256[NLIMBS(256)];
 typedef limb_t vec512[NLIMBS(512)];
 typedef limb_t vec384[NLIMBS(384)];
 typedef limb_t vec768[NLIMBS(768)];
-typedef vec384 vec384x[2];      /* 0 is "real" part, 1 is "imaginary" */
+typedef vec384 vec384x[2];          /* 0 is "real" part, 1 is "imaginary" */
+typedef vec256 fourVec384[12];      
+typedef fourVec384 fourVec384x[2];    /* 0 is "real" part, 1 is "imaginary" */
 
 typedef unsigned char byte;
 #define TO_BYTES(limb64)    (byte)limb64,(byte)(limb64>>8),\

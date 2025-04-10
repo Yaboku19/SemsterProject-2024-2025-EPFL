@@ -373,42 +373,29 @@ static inline void load_vec384_from_vec256(const vec256 *a, vec384 *out) {
     }
 }
 
-static inline void simd_add_fp(vec384 *out, vec384 *a, vec384 *b) {
-    vec256 four_a[12], four_b[12], four_out[12] = {0};
-    load_vec256_from_vec384(four_a, a);
-    load_vec256_from_vec384(four_b, b);
-    add_ass_384(four_out, four_a, four_b, &lowMask, &upMask);
-    checkFourModulo384_v2(four_out, BLS12_381_P, 0);
-    load_vec384_from_vec256(four_out, out);
+static inline void simd_add_fp(vec256 *out, vec256 *a, vec256 *b) {
+    add_ass_384(out, a, b, &lowMask, &upMask);
+    checkFourModulo384_v2(out, BLS12_381_P, 0);
 }
 
-static inline void simd_sub_fp(vec384 *out, vec384 *a, vec384 *b) {
-    vec256 four_a[12], four_b[12], four_out[12] = {0};
-    load_vec256_from_vec384(four_a, a);
-    load_vec256_from_vec384(four_b, b);
-    sub_ass_384(four_out, four_a, four_b, &lowMask, &upMask);
-    checkFourModulo384_v2(four_out, BLS12_381_P, 1);
-    load_vec384_from_vec256(four_out, out);
+static inline void simd_sub_fp(vec256 *out, vec256 *a, vec256 *b) {
+    sub_ass_384(out, a, b, &lowMask, &upMask);
+    checkFourModulo384_v2(out, BLS12_381_P, 1);
 }
 
-static inline void simd_mul_fp(vec384 *out, vec384 *a, vec384 *b) {
-    vec256 four_a[12], four_b[12];
-    load_vec256_from_vec384(four_a, a);
-    load_vec256_from_vec384(four_b, b);
+static inline void simd_mul_fp(vec256 *out, vec256 *a, vec256 *b) {
     vec256 t[24] = {0}, m[12] = {0}, finalMul[24] = {0}, final[24] = {0};
-    mul_ass_384_full(t, four_a, four_b, &lowMask, &upMask);
+    mul_ass_384_full(t, a, b, &lowMask, &upMask);
     mul_ass_384(m, n0, t, &lowMask, &upMask);
     mul_ass_384_full(finalMul, m, prime, &lowMask, &upMask);
     add_ass_768(final, t, finalMul, &lowMask, &upMask);
-    vec256 four_out[12];
     for (int i = 0; i < 12; i++) {
-        four_out[i][0] = final[i + 12][0];
-        four_out[i][1] = final[i + 12][1];
-        four_out[i][2] = final[i + 12][2];
-        four_out[i][3] = final[i + 12][3];
+        out[i][0] = final[i + 12][0];
+        out[i][1] = final[i + 12][1];
+        out[i][2] = final[i + 12][2];
+        out[i][3] = final[i + 12][3];
     }
-    checkFourModulo384_v2(four_out, BLS12_381_P, 0);
-    load_vec384_from_vec256(four_out, out);
+    checkFourModulo384_v2(out, BLS12_381_P, 0);
 }
 
 static inline void print_fp(vec384 *out, char *str) {
@@ -416,6 +403,17 @@ static inline void print_fp(vec384 *out, char *str) {
         printf("%s[%d]:\t %016lx", str, j, out[j][5]);
         for (int i = 4; i > -1; i--) {
             printf("_%016lx", out[j][i]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
+
+static inline void print_v2_fp(vec256 *out, char *str) {
+    for(int j = 0; j < 4; j++) {
+        printf("%s[%d]:\t %08lx%08lx", str, j, out[11][j], out[10][j]);
+        for (int i = 9; i > -1; i-=2) {
+            printf("_%08lx%08lx", out[i][j], out[i-1][j]);
         }
         printf("\n");
     }
@@ -501,16 +499,36 @@ static inline void load_vec384x_from_vec256(const vec256 *aR, const vec256 *aI, 
 
 static inline void print_fp2(vec384x *out, char *str) {
     for(int j = 0; j < 4; j++) {
-        printf("%sx[%d][0]:\t %llx", str, j, out[j][0][0]);
-        for (int i = 1; i < 6; i++) {
-            printf("_%llx", out[j][0][i]);
+        printf("%sx[%d][0]:\t %016lx", str, j, out[j][0][5]);
+        for (int i = 4; i > -1; i--) {
+            printf("_%016lx", out[j][0][i]);
         }
         printf("\n");
     }
+    printf("\n");
     for(int j = 0; j < 4; j++) {
-        printf("%sx[%d][1]:\t %llx", str, j, out[j][1][0]);
-        for (int i = 1; i < 6; i++) {
-            printf("_%llx", out[j][1][i]);
+        printf("%sx[%d][1]:\t %016lx", str, j, out[j][1][5]);
+        for (int i = 4; i > -1; i--) {
+            printf("_%016lx", out[j][1][i]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
+
+static inline void print_v2_fp2(fourVec384x out, char *str) {
+    for(int j = 0; j < 4; j++) {
+        printf("%sx[0][%d]:\t %08lx%08lx", str, j, out[0][11][j], out[0][10][j]);
+        for (int i = 9; i > -1; i-=2) {
+            printf("_%08lx%08lx", out[0][i][j], out[0][i-1][j]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+    for(int j = 0; j < 4; j++) {
+        printf("%sx[1][%d]:\t %08lx%08lx", str, j, out[1][11][j], out[1][10][j]);
+        for (int i = 9; i > -1; i-=2) {
+            printf("_%08lx%08lx", out[1][i][j], out[1][i-1][j]);
         }
         printf("\n");
     }
@@ -520,40 +538,28 @@ static inline void print_fp2(vec384x *out, char *str) {
 static inline void add_fp2(vec384x ret, const vec384x a, const vec384x b)
 {   add_mod_384x(ret, a, b, BLS12_381_P);   }
 
-static inline void simd_add_fp2(vec384x *out, vec384x *a, vec384x *b) {
-    vec256 four_aR[12], four_aI[12], four_bR[12], four_bI[12], four_outR[12] = {0}, four_outI[12] = {0};
-    load_vec256_from_vec384x(four_aR, four_aI, a);
-    load_vec256_from_vec384x(four_bR, four_bI, b);
-    add_ass_384(four_outR, four_aR, four_bR, &lowMask, &upMask);
-    add_ass_384(four_outI, four_aI, four_bI, &lowMask, &upMask);
-    checkFourModulo384_v2(four_outR, BLS12_381_P, 0);
-    checkFourModulo384_v2(four_outI, BLS12_381_P, 0);
-    load_vec384x_from_vec256(four_outR, four_outI, out);
+static inline void simd_add_fp2(fourVec384x out, fourVec384x a, fourVec384x b) {
+    add_ass_384(out[0], a[0], b[0], &lowMask, &upMask);
+    add_ass_384(out[1], a[1], b[1], &lowMask, &upMask);
+    checkFourModulo384_v2(out[0], BLS12_381_P, 0);
+    checkFourModulo384_v2(out[1], BLS12_381_P, 0);
 }
 
 static inline void sub_fp2(vec384x ret, const vec384x a, const vec384x b)
 {   sub_mod_384x(ret, a, b, BLS12_381_P);   }
 
-static inline void simd_sub_fp2(vec384x *out, vec384x *a, vec384x *b) {
-    vec256 four_aR[12], four_aI[12], four_bR[12], four_bI[12], four_outR[12] = {0}, four_outI[12] = {0};
-    load_vec256_from_vec384x(four_aR, four_aI, a);
-    load_vec256_from_vec384x(four_bR, four_bI, b);
-    sub_ass_384(four_outR, four_aR, four_bR, &lowMask, &upMask);
-    sub_ass_384(four_outI, four_aI, four_bI, &lowMask, &upMask);
-    checkFourModulo384_v2(four_outR, BLS12_381_P, 1);
-    checkFourModulo384_v2(four_outI, BLS12_381_P, 1);
-    load_vec384x_from_vec256(four_outR, four_outI, out);
+static inline void simd_sub_fp2(fourVec384x out, fourVec384x a, fourVec384x b) {
+    sub_ass_384(out[0], a[0], b[0], &lowMask, &upMask);
+    sub_ass_384(out[1], a[1], b[1], &lowMask, &upMask);
+    checkFourModulo384_v2(out[0], BLS12_381_P, 1);
+    checkFourModulo384_v2(out[1], BLS12_381_P, 1);
 }
 
-static inline void simd_mul_fp2(vec384x *out, vec384x *a, vec384x *b) {
-    vec256 four_aR[12], four_aI[12], four_bR[12], four_bI[12];
+static inline void simd_mul_fp2(fourVec384x out, fourVec384x a, fourVec384x b) {
     vec256 four_ac[12], four_bd[12], four_ad[12], four_bc[12];
-    vec256 four_outR[12], four_outI[12];
-    load_vec256_from_vec384x(four_aR, four_aI, a);
-    load_vec256_from_vec384x(four_bR, four_bI, b);
     vec256 t[4][24] = {0}, m[4][12] = {0}, finalMul[4][24] = {0}, final[4][24] = {0};
     // ac
-    mul_ass_384_full(t[0], four_aR, four_bR, &lowMask, &upMask);
+    mul_ass_384_full(t[0], a[0], b[0], &lowMask, &upMask);
     mul_ass_384(m[0], n0, t[0], &lowMask, &upMask);
     mul_ass_384_full(finalMul[0], m[0], prime, &lowMask, &upMask);
     add_ass_768(final[0], t[0], finalMul[0], &lowMask, &upMask);
@@ -565,7 +571,7 @@ static inline void simd_mul_fp2(vec384x *out, vec384x *a, vec384x *b) {
     }
     checkFourModulo384_v2(four_ac, BLS12_381_P, 0);
     // bd
-    mul_ass_384_full(t[1], four_aI, four_bI, &lowMask, &upMask);
+    mul_ass_384_full(t[1], a[1], b[1], &lowMask, &upMask);
     mul_ass_384(m[1], n0, t[1], &lowMask, &upMask);
     mul_ass_384_full(finalMul[1], m[1], prime, &lowMask, &upMask);
     add_ass_768(final[1], t[1], finalMul[1], &lowMask, &upMask);
@@ -577,7 +583,7 @@ static inline void simd_mul_fp2(vec384x *out, vec384x *a, vec384x *b) {
     }
     checkFourModulo384_v2(four_bd, BLS12_381_P, 0);
     // ad
-    mul_ass_384_full(t[2], four_aR, four_bI, &lowMask, &upMask);
+    mul_ass_384_full(t[2], a[0], b[1], &lowMask, &upMask);
     mul_ass_384(m[2], n0, t[2], &lowMask, &upMask);
     mul_ass_384_full(finalMul[2], m[2], prime, &lowMask, &upMask);
     add_ass_768(final[2], t[2], finalMul[2], &lowMask, &upMask);
@@ -589,7 +595,7 @@ static inline void simd_mul_fp2(vec384x *out, vec384x *a, vec384x *b) {
     }
     checkFourModulo384_v2(four_ad, BLS12_381_P, 0);
     // bc
-    mul_ass_384_full(t[3], four_aI, four_bR, &lowMask, &upMask);
+    mul_ass_384_full(t[3], a[1], b[0], &lowMask, &upMask);
     mul_ass_384(m[3], n0, t[3], &lowMask, &upMask);
     mul_ass_384_full(finalMul[3], m[3], prime, &lowMask, &upMask);
     add_ass_768(final[3], t[3], finalMul[3], &lowMask, &upMask);
@@ -601,13 +607,11 @@ static inline void simd_mul_fp2(vec384x *out, vec384x *a, vec384x *b) {
     }
     checkFourModulo384_v2(four_bc, BLS12_381_P, 0);
     // outR
-    sub_ass_384(four_outR, four_ac, four_bd, &lowMask, &upMask);
-    checkFourModulo384_v2(four_outR, BLS12_381_P, 1);
+    sub_ass_384(out[0], four_ac, four_bd, &lowMask, &upMask);
+    checkFourModulo384_v2(out[0], BLS12_381_P, 1);
     // outI
-    add_ass_384(four_outI, four_ad, four_bc, &lowMask, &upMask);
-    checkFourModulo384_v2(four_outI, BLS12_381_P, 0);
-    // load
-    load_vec384x_from_vec256(four_outR, four_outI, out);
+    add_ass_384(out[1], four_ad, four_bc, &lowMask, &upMask);
+    checkFourModulo384_v2(out[1], BLS12_381_P, 0);
 }
 
 static inline void mul_by_3_fp2(vec384x ret, const vec384x a)
