@@ -39,6 +39,20 @@ vec256 prime[12] = {
     {0x397fe69a, 0x397fe69a, 0x397fe69a, 0x397fe69a},
     {0x1a0111ea, 0x1a0111ea, 0x1a0111ea, 0x1a0111ea}
 };
+vec256 sub_mod_num[12] = {
+    {0x00005555, 0x00005555, 0x00005555, 0x00005555}, // 0x00005555
+    {0x46010000, 0x46010000, 0x46010000, 0x46010000}, // 0x46010000
+    {0x4eac0000, 0x4eac0000, 0x4eac0000, 0x4eac0000}, // 0x4eac0000
+    {0xe1540001, 0xe1540001, 0xe1540001, 0xe1540001}, // 0xe1540001 -
+    {0x094f09db, 0x094f09db, 0x094f09db, 0x094f09db}, // 0x094f09db
+    {0x98cf2d5f, 0x98cf2d5f, 0x98cf2d5f, 0x98cf2d5f}, // 0x98cf2d5f -
+    {0x0c7aed40, 0x0c7aed40, 0x0c7aed40, 0x0c7aed40}, // 0x0c7aed40
+    {0x9b88b47b, 0x9b88b47b, 0x9b88b47b, 0x9b88b47b}, // 0x9b88b47b -
+    {0xbcb45328, 0xbcb45328, 0xbcb45328, 0xbcb45328}, // 0xbcb45328
+    {0xb4e45849, 0xb4e45849, 0xb4e45849, 0xb4e45849}, // 0xb4e45849 -
+    {0xc6801965, 0xc6801965, 0xc6801965, 0xc6801965},  // 0xc6801965
+    {0xe5feee15, 0xe5feee15, 0xe5feee15, 0xe5feee15}, // 0xe5feee15
+};
 
 vec256 upMask = {0xFFFFFFFF00000000, 0xFFFFFFFF00000000, 0xFFFFFFFF00000000, 0xFFFFFFFF00000000};
 vec256 lowMask = {0x00000000FFFFFFFF, 0x00000000FFFFFFFF, 0x00000000FFFFFFFF,0x00000000FFFFFFFF};
@@ -48,46 +62,6 @@ vec256 lowMask = {0x00000000FFFFFFFF, 0x00000000FFFFFFFF, 0x00000000FFFFFFFF,0x0
  */
 static inline void add_fp(vec384 ret, const vec384 a, const vec384 b)
 {   add_mod_384(ret, a, b, BLS12_381_P);   }
-
-void subModulo_l (vec256 *up, vec256 *low, const vec384 primeNumber, int *indexes) {
-    for (int j = 0; j < 4; j++) {
-        if (indexes[j] == -1) {
-            break;
-        }
-        uint64_t carry = 0;
-        for (int i = 0; i < 6; i++) {
-            uint64_t num = ((up[i][indexes[j]] << 32) + low[i][indexes[j]]);
-            uint64_t new_value = num - primeNumber[i] - carry;
-            if(new_value > num && i != 5) {
-                carry = 1;
-            } else {
-                carry = 0;
-            }
-            up[i][indexes[j]] = new_value >> 32;
-            low[i][indexes[j]] = new_value & 0xFFFFFFFF;
-        }
-    }
-}
-
-void add_Modulo_l (vec256 *up, vec256 *low, const vec384 primeNumber, int *indexes) {
-    for (int j = 0; j < 4; j++) {
-        if (indexes[j] == -1) {
-            break;
-        }
-        uint64_t carry = 0;
-        for (int i = 0; i < 6; i++) {
-            uint64_t num = ((up[i][indexes[j]] << 32) + low[i][indexes[j]]);
-            uint64_t new_value = num + primeNumber[i] + carry;
-            if(new_value < num - carry && i != 5) {
-                carry = 1;
-            } else {
-                carry = 0;
-            }
-            up[i][indexes[j]] = new_value >> 32;
-            low[i][indexes[j]] = new_value & 0xFFFFFFFF;
-        }
-    }
-}
 
 void subModulo_v2 (vec256 *num_chunks, const vec384 primeNumber, int *indexes) {
     for (int j = 0; j < 4; j++) {
@@ -109,28 +83,62 @@ void subModulo_v2 (vec256 *num_chunks, const vec384 primeNumber, int *indexes) {
     }
 }
 
-void checkFourModulo384_l (vec256 *up, vec256 *low, const vec384 primeNumber, int mode) {
-    int indexes[4] = {-1, -1, -1, -1};
-    int index = 0;
-    for (int j = 0; j < 4; j++) {
-        for (int i = 5; i > -1; i--) {
-            uint64_t num = (up[i][j] << 32) + low[i][j];
-            if (num < primeNumber[i]) {
-                break;
-            } else if (num > primeNumber[i]) {
-                indexes[index] = j;
-                index++;
-                break;
+static inline void sub_ass_384 (vec256 *out, vec256 *a, vec256 *b, vec256 *lowMask, vec256 *upMask) {
+    asm volatile (
+        "vmovdqu (%[lowMask]), %%ymm4\n"    // ymm4 for lowMask
+        "vmovdqu (%[upMask]), %%ymm5\n"     // ymm5 for upMask
+        "vpxor %%ymm6, %%ymm6, %%ymm6\n"    // ymm6 for rest
+        "vpxor %%ymm7, %%ymm7, %%ymm7\n"    // ymm6 for rest
+        "mov $11, %%rcx\n"                  // loop of 6
+    "1:\n"
+        "vmovdqu (%[a]), %%ymm0\n"          // first operand in ymm0
+        "vmovdqu (%[b]), %%ymm1\n"          // second operand in ymm1
+
+        "vpsubq %%ymm1, %%ymm0, %%ymm0\n"   // sum in ymm0
+        "vpsubq %%ymm6, %%ymm0, %%ymm0\n"   // sum the rest
+
+        "vpand %%ymm0, %%ymm4, %%ymm1\n"    // and with lowerMap
+        "vmovdqu %%ymm1, (%[c])\n"          // back in C
+
+        "vpand %%ymm0, %%ymm5, %%ymm6\n"    // and with upMask
+        "vpsrlq $32, %%ymm6, %%ymm6\n"      // new rest
+
+        "vpsubq %%ymm6, %%ymm7, %%ymm6\n"   // shift sign
+        "vpand %%ymm6, %%ymm4, %%ymm6\n"    // and with lowerMap
+
+        "add $32, %[a]\n"                   // new pointers
+        "add $32, %[b]\n"
+        "add $32, %[c]\n"
+
+        "dec %%rcx\n"                       // decrement counter
+        "jge 1b\n"                          // if not zero, loop again
+        : [a]"+r" (a), [b]"+r" (b), [c] "+r" (out), [upMask]"+r" (upMask), [lowMask]"+r" (lowMask)
+        :
+        : "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "ymm7", "rcx", "memory"
+    );
+}
+
+void subModulo_v2_sum (vec256 *num_chunks) {
+    vec256 num_chunks_nev[12] = {0};
+    sub_ass_384(num_chunks_nev, num_chunks, prime, &lowMask, &upMask);
+    for (int i = 0; i < 4; i++) {
+        if (num_chunks_nev[11][i] < num_chunks[11][i]) {
+            for (int j = 0; j < 12; j++) {
+                num_chunks[j][i] = num_chunks_nev[j][i];
             }
         }
     }
-    if (indexes[0] != -1) {
-        if (mode == 0) {
-            subModulo_l(up, low, primeNumber, indexes);
-        } else {
-            add_Modulo_l(up, low, primeNumber, indexes);
+}
+
+void subModulo_v2_sub (vec256 *num_chunks) {
+    vec256 num_chunks_nev[12] = {0};
+    sub_ass_384(num_chunks_nev, num_chunks, sub_mod_num, &lowMask, &upMask);
+    for (int i = 0; i < 4; i++) {
+        if (num_chunks_nev[11][i] < num_chunks[11][i]) {
+            for (int j = 0; j < 12; j++) {
+                num_chunks[j][i] = num_chunks_nev[j][i];
+            }
         }
-        checkFourModulo384_l(up, low, primeNumber, mode);
     }
 }
 
@@ -154,7 +162,6 @@ void checkFourModulo384_v2 (vec256 *num_chunks, const vec384 primeNumber, int mo
             subModulo_v2(num_chunks, primeNumber, indexes);
             checkFourModulo384_v2(num_chunks, primeNumber, 0);
         } else {
-            // 0xe5feee15c6801965_b4e45849bcb45328_9b88b47b0c7aed40_98cf2d5f094f09db_e15400014eac0000_4601000000005555
             vec384 numToSum = {0x4601000000005555, 0xe15400014eac0000, 0x98cf2d5f094f09db, 0x9b88b47b0c7aed40,
                 0xb4e45849bcb45328, 0xe5feee15c6801965};
             subModulo_v2(num_chunks, numToSum, indexes);
@@ -219,41 +226,6 @@ static inline void add_ass_768 (vec256 *out, vec256 *a, vec256 *b, vec256 *lowMa
         : [a]"+r" (a), [b]"+r" (b), [c]"+r" (out), [upMask]"+r" (upMask), [lowMask]"+r" (lowMask)
         :
         : "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "rcx", "memory"
-    );
-}
-
-static inline void sub_ass_384 (vec256 *out, vec256 *a, vec256 *b, vec256 *lowMask, vec256 *upMask) {
-    asm volatile (
-        "vmovdqu (%[lowMask]), %%ymm4\n"    // ymm4 for lowMask
-        "vmovdqu (%[upMask]), %%ymm5\n"     // ymm5 for upMask
-        "vpxor %%ymm6, %%ymm6, %%ymm6\n"    // ymm6 for rest
-        "vpxor %%ymm7, %%ymm7, %%ymm7\n"    // ymm6 for rest
-        "mov $11, %%rcx\n"                  // loop of 6
-    "1:\n"
-        "vmovdqu (%[a]), %%ymm0\n"          // first operand in ymm0
-        "vmovdqu (%[b]), %%ymm1\n"          // second operand in ymm1
-
-        "vpsubq %%ymm1, %%ymm0, %%ymm0\n"   // sum in ymm0
-        "vpsubq %%ymm6, %%ymm0, %%ymm0\n"   // sum the rest
-
-        "vpand %%ymm0, %%ymm4, %%ymm1\n"    // and with lowerMap
-        "vmovdqu %%ymm1, (%[c])\n"          // back in C
-
-        "vpand %%ymm0, %%ymm5, %%ymm6\n"    // and with upMask
-        "vpsrlq $32, %%ymm6, %%ymm6\n"      // new rest
-
-        "vpsubq %%ymm6, %%ymm7, %%ymm6\n"   // shift sign
-        "vpand %%ymm6, %%ymm4, %%ymm6\n"    // and with lowerMap
-
-        "add $32, %[a]\n"                   // new pointers
-        "add $32, %[b]\n"
-        "add $32, %[c]\n"
-
-        "dec %%rcx\n"                       // decrement counter
-        "jge 1b\n"                          // if not zero, loop again
-        : [a]"+r" (a), [b]"+r" (b), [c] "+r" (out), [upMask]"+r" (upMask), [lowMask]"+r" (lowMask)
-        :
-        : "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "ymm7", "rcx", "memory"
     );
 }
 
@@ -349,38 +321,14 @@ static inline void mul_ass_384 (vec256 *out, vec256 *a, vec256 *b, vec256 *lowMa
     );
 }
 
-static inline void load_vec256_from_vec384(vec256 *out,const vec384 *a) {
-    for (int i = 0; i < 6; i++) {
-        out[i * 2][0] = a[0][i] & 0xFFFFFFFF;
-        out[i * 2][1] = a[1][i] & 0xFFFFFFFF;
-        out[i * 2][2] = a[2][i] & 0xFFFFFFFF;
-        out[i * 2][3] = a[3][i] & 0xFFFFFFFF;
-        out[i * 2 + 1][0] = a[0][i] >> 32;
-        out[i * 2 + 1][1] = a[1][i] >> 32;
-        out[i * 2 + 1][2] = a[2][i] >> 32;
-        out[i * 2 + 1][3] = a[3][i] >> 32;
-    }
-}
-
-static inline void load_vec384_from_vec256(const vec256 *a, vec384 *out) {
-    for (int i = 0; i < 4; i++) {
-        out[i][0] = a[0][i] | (a[1][i] << 32);
-        out[i][1] = a[2][i] | (a[3][i] << 32);
-        out[i][2] = a[4][i] | (a[5][i] << 32);
-        out[i][3] = a[6][i] | (a[7][i] << 32);
-        out[i][4] = a[8][i] | (a[9][i] << 32);
-        out[i][5] = a[10][i] | (a[11][i] << 32);
-    }
-}
-
 static inline void simd_add_fp(vec256 *out, vec256 *a, vec256 *b) {
     add_ass_384(out, a, b, &lowMask, &upMask);
-    checkFourModulo384_v2(out, BLS12_381_P, 0);
+    subModulo_v2_sum(out);
 }
 
 static inline void simd_sub_fp(vec256 *out, vec256 *a, vec256 *b) {
     sub_ass_384(out, a, b, &lowMask, &upMask);
-    checkFourModulo384_v2(out, BLS12_381_P, 1);
+    subModulo_v2_sub(out);
 }
 
 static inline void simd_mul_fp(vec256 *out, vec256 *a, vec256 *b) {
@@ -398,18 +346,7 @@ static inline void simd_mul_fp(vec256 *out, vec256 *a, vec256 *b) {
     checkFourModulo384_v2(out, BLS12_381_P, 0);
 }
 
-static inline void print_fp(vec384 *out, char *str) {
-    for(int j = 0; j < 4; j++) {
-        printf("%s[%d]:\t %016lx", str, j, out[j][5]);
-        for (int i = 4; i > -1; i--) {
-            printf("_%016lx", out[j][i]);
-        }
-        printf("\n");
-    }
-    printf("\n");
-}
-
-static inline void print_v2_fp(vec256 *out, char *str) {
+static inline void print_fp(vec256 *out, char *str) {
     for(int j = 0; j < 4; j++) {
         printf("%s[%d]:\t %08lx%08lx", str, j, out[11][j], out[10][j]);
         for (int i = 9; i > -1; i-=2) {
@@ -457,66 +394,7 @@ static inline void redc_fp(vec384 ret, const vec768 a)
  * BLS12-381-specific Fp2 shortcuts to assembly.
  */
 
-static inline void load_vec256_from_vec384x(vec256 *outR, vec256 *outI, const vec384x *a) {
-    for (int i = 0; i < 6; i++) {
-        outR[i * 2][0] = a[0][0][i] & 0xFFFFFFFF;
-        outR[i * 2][1] = a[1][0][i] & 0xFFFFFFFF;
-        outR[i * 2][2] = a[2][0][i] & 0xFFFFFFFF;
-        outR[i * 2][3] = a[3][0][i] & 0xFFFFFFFF;
-        outR[i * 2 + 1][0] = a[0][0][i] >> 32;
-        outR[i * 2 + 1][1] = a[1][0][i] >> 32;
-        outR[i * 2 + 1][2] = a[2][0][i] >> 32;
-        outR[i * 2 + 1][3] = a[3][0][i] >> 32;
-
-        outI[i * 2][0] = a[0][1][i] & 0xFFFFFFFF;
-        outI[i * 2][1] = a[1][1][i] & 0xFFFFFFFF;
-        outI[i * 2][2] = a[2][1][i] & 0xFFFFFFFF;
-        outI[i * 2][3] = a[3][1][i] & 0xFFFFFFFF;
-        outI[i * 2 + 1][0] = a[0][1][i] >> 32;
-        outI[i * 2 + 1][1] = a[1][1][i] >> 32;
-        outI[i * 2 + 1][2] = a[2][1][i] >> 32;
-        outI[i * 2 + 1][3] = a[3][1][i] >> 32;
-    }
-}
-
-static inline void load_vec384x_from_vec256(const vec256 *aR, const vec256 *aI, vec384x *out) {
-    for (int i = 0; i < 4; i++) {
-        out[i][0][0] = aR[0][i] | (aR[1][i] << 32);
-        out[i][0][1] = aR[2][i] | (aR[3][i] << 32);
-        out[i][0][2] = aR[4][i] | (aR[5][i] << 32);
-        out[i][0][3] = aR[6][i] | (aR[7][i] << 32);
-        out[i][0][4] = aR[8][i] | (aR[9][i] << 32);
-        out[i][0][5] = aR[10][i] | (aR[11][i] << 32);
-
-        out[i][1][0] = aI[0][i] | (aI[1][i] << 32);
-        out[i][1][1] = aI[2][i] | (aI[3][i] << 32);
-        out[i][1][2] = aI[4][i] | (aI[5][i] << 32);
-        out[i][1][3] = aI[6][i] | (aI[7][i] << 32);
-        out[i][1][4] = aI[8][i] | (aI[9][i] << 32);
-        out[i][1][5] = aI[10][i] | (aI[11][i] << 32);
-    }
-}
-
-static inline void print_fp2(vec384x *out, char *str) {
-    for(int j = 0; j < 4; j++) {
-        printf("%sx[%d][0]:\t %016lx", str, j, out[j][0][5]);
-        for (int i = 4; i > -1; i--) {
-            printf("_%016lx", out[j][0][i]);
-        }
-        printf("\n");
-    }
-    printf("\n");
-    for(int j = 0; j < 4; j++) {
-        printf("%sx[%d][1]:\t %016lx", str, j, out[j][1][5]);
-        for (int i = 4; i > -1; i--) {
-            printf("_%016lx", out[j][1][i]);
-        }
-        printf("\n");
-    }
-    printf("\n");
-}
-
-static inline void print_v2_fp2(fourVec384x out, char *str) {
+static inline void print_fp2(fourVec384x out, char *str) {
     for(int j = 0; j < 4; j++) {
         printf("%sx[0][%d]:\t %08lx%08lx", str, j, out[0][11][j], out[0][10][j]);
         for (int i = 9; i > -1; i-=2) {
@@ -541,8 +419,8 @@ static inline void add_fp2(vec384x ret, const vec384x a, const vec384x b)
 static inline void simd_add_fp2(fourVec384x out, fourVec384x a, fourVec384x b) {
     add_ass_384(out[0], a[0], b[0], &lowMask, &upMask);
     add_ass_384(out[1], a[1], b[1], &lowMask, &upMask);
-    checkFourModulo384_v2(out[0], BLS12_381_P, 0);
-    checkFourModulo384_v2(out[1], BLS12_381_P, 0);
+    subModulo_v2_sum(out[0]);
+    subModulo_v2_sum(out[1]);
 }
 
 static inline void sub_fp2(vec384x ret, const vec384x a, const vec384x b)
@@ -551,8 +429,8 @@ static inline void sub_fp2(vec384x ret, const vec384x a, const vec384x b)
 static inline void simd_sub_fp2(fourVec384x out, fourVec384x a, fourVec384x b) {
     sub_ass_384(out[0], a[0], b[0], &lowMask, &upMask);
     sub_ass_384(out[1], a[1], b[1], &lowMask, &upMask);
-    checkFourModulo384_v2(out[0], BLS12_381_P, 1);
-    checkFourModulo384_v2(out[1], BLS12_381_P, 1);
+    subModulo_v2_sub(out[0]);
+    subModulo_v2_sub(out[1]);
 }
 
 static inline void simd_mul_fp2(fourVec384x out, fourVec384x a, fourVec384x b) {
