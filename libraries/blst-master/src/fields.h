@@ -10,6 +10,7 @@
 #include "consts.h"
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 vec256 n0[12] = {
     {0xfffcfffd, 0xfffcfffd, 0xfffcfffd, 0xfffcfffd},
@@ -331,21 +332,6 @@ static inline void simd_sub_fp(vec256 *out, vec256 *a, vec256 *b) {
     subModulo_v2_sub(out);
 }
 
-static inline void simd_mul_fp(vec256 *out, vec256 *a, vec256 *b) {
-    vec256 t[24] = {0}, m[12] = {0}, finalMul[24] = {0}, final[24] = {0};
-    mul_ass_384_full(t, a, b, &lowMask, &upMask);
-    mul_ass_384(m, n0, t, &lowMask, &upMask);
-    mul_ass_384_full(finalMul, m, prime, &lowMask, &upMask);
-    add_ass_768(final, t, finalMul, &lowMask, &upMask);
-    for (int i = 0; i < 12; i++) {
-        out[i][0] = final[i + 12][0];
-        out[i][1] = final[i + 12][1];
-        out[i][2] = final[i + 12][2];
-        out[i][3] = final[i + 12][3];
-    }
-    checkFourModulo384_v2(out, BLS12_381_P, 0);
-}
-
 static inline void print_fp(vec256 *out, char *str) {
     for(int j = 0; j < 4; j++) {
         printf("%s[%d]:\t %08lx%08lx", str, j, out[11][j], out[10][j]);
@@ -355,6 +341,16 @@ static inline void print_fp(vec256 *out, char *str) {
         printf("\n");
     }
     printf("\n");
+}
+
+static inline void simd_mul_fp(vec256 *out, vec256 *a, vec256 *b) {
+    vec256 t[24] = {0}, m[12] = {0}, finalMul[24] = {0}, final[24] = {0};
+    mul_ass_384_full(t, a, b, &lowMask, &upMask);
+    mul_ass_384(m, n0, t, &lowMask, &upMask);
+    mul_ass_384_full(finalMul, m, prime, &lowMask, &upMask);
+    add_ass_768(final, t, finalMul, &lowMask, &upMask);
+    memcpy(out, &final[12], sizeof(vec256) * 12);
+    checkFourModulo384_v2(out, BLS12_381_P, 0);
 }
 
 static inline void sub_fp(vec384 ret, const vec384 a, const vec384 b)
@@ -441,48 +437,28 @@ static inline void simd_mul_fp2(fourVec384x out, fourVec384x a, fourVec384x b) {
     mul_ass_384(m[0], n0, t[0], &lowMask, &upMask);
     mul_ass_384_full(finalMul[0], m[0], prime, &lowMask, &upMask);
     add_ass_768(final[0], t[0], finalMul[0], &lowMask, &upMask);
-    for (int i = 0; i < 12; i++) {
-        four_ac[i][0] = final[0][i + 12][0];
-        four_ac[i][1] = final[0][i + 12][1];
-        four_ac[i][2] = final[0][i + 12][2];
-        four_ac[i][3] = final[0][i + 12][3];
-    }
+    memcpy(four_ac, &final[0][12], sizeof(vec256) * 12);
     checkFourModulo384_v2(four_ac, BLS12_381_P, 0);
     // bd
     mul_ass_384_full(t[1], a[1], b[1], &lowMask, &upMask);
     mul_ass_384(m[1], n0, t[1], &lowMask, &upMask);
     mul_ass_384_full(finalMul[1], m[1], prime, &lowMask, &upMask);
     add_ass_768(final[1], t[1], finalMul[1], &lowMask, &upMask);
-    for (int i = 0; i < 12; i++) {
-        four_bd[i][0] = final[1][i + 12][0];
-        four_bd[i][1] = final[1][i + 12][1];
-        four_bd[i][2] = final[1][i + 12][2];
-        four_bd[i][3] = final[1][i + 12][3];
-    }
+    memcpy(four_bd, &final[1][12], sizeof(vec256) * 12);
     checkFourModulo384_v2(four_bd, BLS12_381_P, 0);
     // ad
     mul_ass_384_full(t[2], a[0], b[1], &lowMask, &upMask);
     mul_ass_384(m[2], n0, t[2], &lowMask, &upMask);
     mul_ass_384_full(finalMul[2], m[2], prime, &lowMask, &upMask);
     add_ass_768(final[2], t[2], finalMul[2], &lowMask, &upMask);
-    for (int i = 0; i < 12; i++) {
-        four_ad[i][0] = final[2][i + 12][0];
-        four_ad[i][1] = final[2][i + 12][1];
-        four_ad[i][2] = final[2][i + 12][2];
-        four_ad[i][3] = final[2][i + 12][3];
-    }
+    memcpy(four_ad, &final[2][12], sizeof(vec256) * 12);
     checkFourModulo384_v2(four_ad, BLS12_381_P, 0);
     // bc
     mul_ass_384_full(t[3], a[1], b[0], &lowMask, &upMask);
     mul_ass_384(m[3], n0, t[3], &lowMask, &upMask);
     mul_ass_384_full(finalMul[3], m[3], prime, &lowMask, &upMask);
     add_ass_768(final[3], t[3], finalMul[3], &lowMask, &upMask);
-    for (int i = 0; i < 12; i++) {
-        four_bc[i][0] = final[3][i + 12][0];
-        four_bc[i][1] = final[3][i + 12][1];
-        four_bc[i][2] = final[3][i + 12][2];
-        four_bc[i][3] = final[3][i + 12][3];
-    }
+    memcpy(four_bc, &final[3][12], sizeof(vec256) * 12);
     checkFourModulo384_v2(four_bc, BLS12_381_P, 0);
     // outR
     sub_ass_384(out[0], four_ac, four_bd, &lowMask, &upMask);

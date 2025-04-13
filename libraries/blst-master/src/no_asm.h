@@ -3,7 +3,6 @@
  * Licensed under the Apache License, Version 2.0, see LICENSE for details.
  * SPDX-License-Identifier: Apache-2.0
  */
-
 #if LIMB_T_BITS==32
 typedef unsigned long long llimb_t;
 #endif
