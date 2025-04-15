@@ -12,20 +12,11 @@
 #include <stdint.h>
 #include <string.h>
 
-vec256 n0[12] = {
+vec256 n0[2] = {
     {0xfffcfffd, 0xfffcfffd, 0xfffcfffd, 0xfffcfffd},
-    {0x89f3fffc, 0x89f3fffc, 0x89f3fffc, 0x89f3fffc},
-    {0xd9d113e8, 0xd9d113e8, 0xd9d113e8, 0xd9d113e8},
-    {0x286adb92, 0x286adb92, 0x286adb92, 0x286adb92},
-    {0xc8e30b48, 0xc8e30b48, 0xc8e30b48, 0xc8e30b48},
-    {0x16ef2ef0, 0x16ef2ef0, 0x16ef2ef0, 0x16ef2ef0},
-    {0x8eb2db4c, 0x8eb2db4c, 0x8eb2db4c, 0x8eb2db4c},
-    {0x19ecca0e, 0x19ecca0e, 0x19ecca0e, 0x19ecca0e},
-    {0xe268cf58, 0xe268cf58, 0xe268cf58, 0xe268cf58},
-    {0x68b316fe, 0x68b316fe, 0x68b316fe, 0x68b316fe},
-    {0xfeaafc94, 0xfeaafc94, 0xfeaafc94, 0xfeaafc94},
-    {0xceb06106, 0xceb06106, 0xceb06106, 0xceb06106}
+    {0x89f3fffc, 0x89f3fffc, 0x89f3fffc, 0x89f3fffc}
 };
+
 vec256 prime[12] = {
     {0xffffaaab, 0xffffaaab, 0xffffaaab, 0xffffaaab},
     {0xb9feffff, 0xb9feffff, 0xb9feffff, 0xb9feffff},
@@ -322,6 +313,168 @@ static inline void mul_ass_384 (vec256 *out, vec256 *a, vec256 *b, vec256 *lowMa
     );
 }
 
+static inline void mul_ass_384_fixed_b (vec256 *out, vec256 *a, vec256 *b, vec256 *lowMask, vec256 *upMask) {
+    asm volatile (
+        "vmovdqu (%[lowMask]), %%ymm4\n"    // ymm4 for lowMask
+        "vmovdqu (%[upMask]), %%ymm5\n"     // ymm5 for upMask
+        "mov $2, %%rax\n"                  // loop of 2
+    "1:\n"
+        "mov $12, %%rbx\n"                  // loop of 12
+        "vmovdqu (%[b]), %%ymm1\n"          // second operand in ymm1
+        "vpxor %%ymm6, %%ymm6, %%ymm6\n"    // ymm6 for rest
+    "2:\n"
+        "vmovdqu (%[a]), %%ymm0\n"          // first operand in ymm1
+        "vmovdqu (%[temp]), %%ymm2\n"       // temp in ymm2
+
+        "vpmuludq %%ymm1, %%ymm0, %%ymm0\n" // mul first and second operand
+        "vpaddq %%ymm6, %%ymm0, %%ymm0\n"   // sum the rest
+        "vpaddq %%ymm2, %%ymm0, %%ymm0\n"   // sum with temp
+
+        "vpand %%ymm0, %%ymm5, %%ymm6\n"    // and with upMask
+        "vpsrlq $32, %%ymm6, %%ymm6\n"      // new rest
+        "vpand %%ymm0, %%ymm4, %%ymm0\n"    // and with lowerMap
+        "vmovdqu %%ymm0, (%[temp])\n"       // back in temp
+
+        "add $32, %[a]\n"                   // new pointer for a
+        "add $32, %[temp]\n"                // new pointer for b
+
+        "dec %%rbx\n"                       // decrement counter
+        "jg 2b\n"                          // if not zero, loop again
+
+        "vmovdqu %%ymm6, (%[temp])\n"       // back in temp
+
+        "mov $12, %%rcx\n"
+        "imul $32, %%rcx\n"
+
+        "sub %%rcx, %[a]\n"                 // resetting a
+        "sub %%rcx, %[temp]\n"              // resetting temp
+        "add $32, %[temp]\n"
+        "add $32, %[b]\n"                   // new pointer b
+
+        "dec %%rax\n"                       // decrement counter
+        "jg 1b\n"                          // if not zero, loop again
+        : [a]"+r" (a), [b]"+r" (b), [upMask]"+r" (upMask), [lowMask]"+r" (lowMask)
+        , [temp] "+r" (out)
+        :
+        : "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "rax", "rbx", "rcx", "memory"
+    );
+}
+
+static inline void mul_ass_64 (vec256 *out, vec256 *a, vec256 *b, vec256 *lowMask, vec256 *upMask) {
+    asm volatile (
+        "vmovdqu (%[lowMask]), %%ymm4\n"    // ymm4 for lowMask
+        "vmovdqu (%[upMask]), %%ymm5\n"     // ymm5 for upMask
+        "mov $2, %%rax\n"                  // loop of 12
+    "1:\n"
+        "mov %%rax, %%rbx\n"                // loop of 12
+        "vmovdqu (%[b]), %%ymm1\n"          // second operand in ymm1
+        "vpxor %%ymm6, %%ymm6, %%ymm6\n"    // ymm6 for rest
+    "2:\n"
+        "vmovdqu (%[a]), %%ymm0\n"          // first operand in ymm1
+        "vmovdqu (%[temp]), %%ymm2\n"       // temp in ymm2
+
+        "vpmuludq %%ymm1, %%ymm0, %%ymm0\n" // mul first and second operand
+        "vpaddq %%ymm6, %%ymm0, %%ymm0\n"   // sum the rest
+        "vpaddq %%ymm2, %%ymm0, %%ymm0\n"   // sum with temp
+
+        "vpand %%ymm0, %%ymm5, %%ymm6\n"    // and with upMask
+        "vpsrlq $32, %%ymm6, %%ymm6\n"      // new rest
+        "vpand %%ymm0, %%ymm4, %%ymm0\n"    // and with lowerMap
+        "vmovdqu %%ymm0, (%[temp])\n"       // back in temp
+
+        "add $32, %[a]\n"                   // new pointer for a
+        "add $32, %[temp]\n"                // new pointer for b
+
+        "dec %%rbx\n"                       // decrement counter
+        "jg 2b\n"                          // if not zero, loop again
+
+        "mov %%rax, %%rcx\n"
+        "imul $32, %%rcx\n"
+
+        "sub %%rcx, %[a]\n"                 // resetting a
+        "sub %%rcx, %[temp]\n"              // resetting temp
+        "add $32, %[temp]\n"
+        "add $32, %[b]\n"                   // new pointer b
+
+        "dec %%rax\n"                       // decrement counter
+        "jg 1b\n"                          // if not zero, loop again
+        : [a]"+r" (a), [b]"+r" (b), [upMask]"+r" (upMask), [lowMask]"+r" (lowMask)
+        , [temp] "+r" (out)
+        :
+        : "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "rax", "rbx", "rcx", "memory"
+    );
+}
+
+static inline void mul_ass_384_fixed_b_shift (vec256 *out, vec256 *a, vec256 *b, vec256 *lowMask, vec256 *upMask, vec256 *carry) {
+    asm volatile (
+        "vmovdqu (%[lowMask]), %%ymm4\n"    // ymm4 for lowMask
+        "vmovdqu (%[upMask]), %%ymm5\n"     // ymm5 for upMask
+        "mov $2, %%rax\n"                  // loop of 2
+    "1:\n"
+        "mov $12, %%rbx\n"                  // loop of 12
+        "vmovdqu (%[b]), %%ymm1\n"          // second operand in ymm1
+        "vpxor %%ymm6, %%ymm6, %%ymm6\n"    // ymm6 for rest
+    "2:\n"
+        "vmovdqu (%[a]), %%ymm0\n"          // first operand in ymm1
+        "vmovdqu (%[temp]), %%ymm2\n"       // temp in ymm2
+
+        "vpmuludq %%ymm1, %%ymm0, %%ymm0\n" // mul first and second operand
+        "vpaddq %%ymm6, %%ymm0, %%ymm0\n"   // sum the rest
+        "vpaddq %%ymm2, %%ymm0, %%ymm0\n"   // sum with temp
+
+        "vpand %%ymm0, %%ymm5, %%ymm6\n"    // and with upMask
+        "vpsrlq $32, %%ymm6, %%ymm6\n"      // new rest
+        "vpand %%ymm0, %%ymm4, %%ymm0\n"    // and with lowerMap
+        "vmovdqu %%ymm0, (%[temp])\n"       // back in temp
+
+        "add $32, %[a]\n"                   // new pointer for a
+        "add $32, %[temp]\n"                // new pointer for b
+
+        "dec %%rbx\n"                       // decrement counter
+        "jg 2b\n"                          // if not zero, loop again
+
+        "vmovdqu %%ymm6, (%[temp])\n"       // back in temp
+
+        "mov $12, %%rcx\n"
+        "imul $32, %%rcx\n"
+
+        "sub %%rcx, %[a]\n"                 // resetting a
+        "sub %%rcx, %[temp]\n"              // resetting temp
+        "add $32, %[temp]\n"
+        "add $32, %[b]\n"                   // new pointer b
+
+        "dec %%rax\n"                       // decrement counter
+        "jg 1b\n"                          // if not zero, loop again
+        "add $384, %[temp]\n"
+        "vmovdqu (%[temp]), %%ymm0\n"
+        "sub $64, %[temp]\n"
+        "vmovdqu (%[temp]), %%ymm1\n"
+        "vpaddq %%ymm1, %%ymm0, %%ymm0\n"
+
+        "vpand %%ymm0, %%ymm5, %%ymm6\n"    // and with upMask
+        "vpsrlq $32, %%ymm6, %%ymm6\n"      // new rest
+        "vpand %%ymm0, %%ymm4, %%ymm0\n"    // and with lowerMap
+        "vmovdqu %%ymm0, (%[temp])\n"       // back in temp
+
+        "add $96, %[temp]\n"
+        "vmovdqu (%[temp]), %%ymm0\n"
+        "sub $64, %[temp]\n"
+        "vmovdqu (%[temp]), %%ymm1\n"
+        "vpaddq %%ymm1, %%ymm0, %%ymm0\n"
+        "vpaddq %%ymm6, %%ymm0, %%ymm0\n"
+
+        "vpand %%ymm0, %%ymm5, %%ymm6\n"    // and with upMask
+        "vpsrlq $32, %%ymm6, %%ymm6\n"      // new rest
+        "vpand %%ymm0, %%ymm4, %%ymm0\n"    // and with lowerMap
+        "vmovdqu %%ymm0, (%[temp])\n"       // back in temp
+        "vmovdqu %%ymm6, (%[carry])\n"
+        : [a]"+r" (a), [b]"+r" (b), [upMask]"+r" (upMask), [lowMask]"+r" (lowMask)
+        , [temp] "+r" (out), [carry] "+r" (carry)
+        :
+        : "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "rax", "rbx", "rcx", "rdx", "memory"
+    );
+}
+
 static inline void simd_add_fp(vec256 *out, vec256 *a, vec256 *b) {
     add_ass_384(out, a, b, &lowMask, &upMask);
     subModulo_v2_sum(out);
@@ -343,13 +496,26 @@ static inline void print_fp(vec256 *out, char *str) {
     printf("\n");
 }
 
-static inline void simd_mul_fp(vec256 *out, vec256 *a, vec256 *b) {
-    vec256 t[24] = {0}, m[12] = {0}, finalMul[24] = {0}, final[24] = {0};
-    mul_ass_384_full(t, a, b, &lowMask, &upMask);
-    mul_ass_384(m, n0, t, &lowMask, &upMask);
-    mul_ass_384_full(finalMul, m, prime, &lowMask, &upMask);
-    add_ass_768(final, t, finalMul, &lowMask, &upMask);
-    memcpy(out, &final[12], sizeof(vec256) * 12);
+void simd_mul_fp(vec256 *out, vec256 *a, vec256 *b) {
+    vec256 temp[16] = {0}, carry = {0}, mx[2] = {0};
+
+    mul_ass_384_fixed_b(temp, a, b, &lowMask, &upMask);
+    mul_ass_64(mx, temp, n0, &lowMask, &upMask);
+
+    for(int j = 0; ;) {
+        memmove(temp[14], temp[12], 2 * sizeof(vec256));
+        mul_ass_384_fixed_b_shift(temp, prime, mx, &lowMask, &upMask, &carry);
+        memmove(temp, temp[2], 14 * sizeof(vec256));
+
+        j +=2;
+        if (j==12)
+            break;
+            
+        mul_ass_384_fixed_b(temp, a, &b[j], &lowMask, &upMask);
+        memset(mx, 0, sizeof(vec256) * 2);
+        mul_ass_64(mx, temp, n0, &lowMask, &upMask);
+    }
+    memcpy(out, temp, sizeof(vec256) * 12);
     checkFourModulo384_v2(out, BLS12_381_P, 0);
 }
 
@@ -413,59 +579,28 @@ static inline void add_fp2(vec384x ret, const vec384x a, const vec384x b)
 {   add_mod_384x(ret, a, b, BLS12_381_P);   }
 
 static inline void simd_add_fp2(fourVec384x out, fourVec384x a, fourVec384x b) {
-    add_ass_384(out[0], a[0], b[0], &lowMask, &upMask);
-    add_ass_384(out[1], a[1], b[1], &lowMask, &upMask);
-    subModulo_v2_sum(out[0]);
-    subModulo_v2_sum(out[1]);
+    simd_add_fp(out[0], a[0], b[0]);
+    simd_add_fp(out[1], a[1], b[1]);
 }
 
 static inline void sub_fp2(vec384x ret, const vec384x a, const vec384x b)
 {   sub_mod_384x(ret, a, b, BLS12_381_P);   }
 
 static inline void simd_sub_fp2(fourVec384x out, fourVec384x a, fourVec384x b) {
-    sub_ass_384(out[0], a[0], b[0], &lowMask, &upMask);
-    sub_ass_384(out[1], a[1], b[1], &lowMask, &upMask);
-    subModulo_v2_sub(out[0]);
-    subModulo_v2_sub(out[1]);
+    simd_sub_fp(out[0], a[0], b[0]);
+    simd_sub_fp(out[1], a[1], b[1]);
 }
 
 static inline void simd_mul_fp2(fourVec384x out, fourVec384x a, fourVec384x b) {
     vec256 four_ac[12], four_bd[12], four_ad[12], four_bc[12];
-    vec256 t[4][24] = {0}, m[4][12] = {0}, finalMul[4][24] = {0}, final[4][24] = {0};
-    // ac
-    mul_ass_384_full(t[0], a[0], b[0], &lowMask, &upMask);
-    mul_ass_384(m[0], n0, t[0], &lowMask, &upMask);
-    mul_ass_384_full(finalMul[0], m[0], prime, &lowMask, &upMask);
-    add_ass_768(final[0], t[0], finalMul[0], &lowMask, &upMask);
-    memcpy(four_ac, &final[0][12], sizeof(vec256) * 12);
-    checkFourModulo384_v2(four_ac, BLS12_381_P, 0);
-    // bd
-    mul_ass_384_full(t[1], a[1], b[1], &lowMask, &upMask);
-    mul_ass_384(m[1], n0, t[1], &lowMask, &upMask);
-    mul_ass_384_full(finalMul[1], m[1], prime, &lowMask, &upMask);
-    add_ass_768(final[1], t[1], finalMul[1], &lowMask, &upMask);
-    memcpy(four_bd, &final[1][12], sizeof(vec256) * 12);
-    checkFourModulo384_v2(four_bd, BLS12_381_P, 0);
-    // ad
-    mul_ass_384_full(t[2], a[0], b[1], &lowMask, &upMask);
-    mul_ass_384(m[2], n0, t[2], &lowMask, &upMask);
-    mul_ass_384_full(finalMul[2], m[2], prime, &lowMask, &upMask);
-    add_ass_768(final[2], t[2], finalMul[2], &lowMask, &upMask);
-    memcpy(four_ad, &final[2][12], sizeof(vec256) * 12);
-    checkFourModulo384_v2(four_ad, BLS12_381_P, 0);
-    // bc
-    mul_ass_384_full(t[3], a[1], b[0], &lowMask, &upMask);
-    mul_ass_384(m[3], n0, t[3], &lowMask, &upMask);
-    mul_ass_384_full(finalMul[3], m[3], prime, &lowMask, &upMask);
-    add_ass_768(final[3], t[3], finalMul[3], &lowMask, &upMask);
-    memcpy(four_bc, &final[3][12], sizeof(vec256) * 12);
-    checkFourModulo384_v2(four_bc, BLS12_381_P, 0);
+    simd_mul_fp(four_ac, a[0], b[0]);
+    simd_mul_fp(four_bd, a[1], b[1]);
+    simd_mul_fp(four_ad, a[0], b[1]);
+    simd_mul_fp(four_bc, a[1], b[0]);
     // outR
-    sub_ass_384(out[0], four_ac, four_bd, &lowMask, &upMask);
-    checkFourModulo384_v2(out[0], BLS12_381_P, 1);
+    simd_sub_fp(out[0], four_ac, four_bd);
     // outI
-    add_ass_384(out[1], four_ad, four_bc, &lowMask, &upMask);
-    checkFourModulo384_v2(out[1], BLS12_381_P, 0);
+    simd_add_fp(out[1], four_ad, four_bc);
 }
 
 static inline void mul_by_3_fp2(vec384x ret, const vec384x a)
