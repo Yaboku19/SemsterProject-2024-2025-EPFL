@@ -405,7 +405,7 @@ static inline void mul_ass_64 (vec256 *out, vec256 *a, vec256 *b, vec256 *lowMas
     );
 }
 
-static inline void mul_ass_384_fixed_b_shift (vec256 *out, vec256 *a, vec256 *b, vec256 *lowMask, vec256 *upMask, vec256 *carry) {
+static inline void mul_ass_384_fixed_b_shift (vec256 *out, vec256 *a, vec256 *b, vec256 *lowMask, vec256 *upMask) {
     asm volatile (
         "vmovdqu (%[lowMask]), %%ymm4\n"    // ymm4 for lowMask
         "vmovdqu (%[upMask]), %%ymm5\n"     // ymm5 for upMask
@@ -463,13 +463,10 @@ static inline void mul_ass_384_fixed_b_shift (vec256 *out, vec256 *a, vec256 *b,
         "vpaddq %%ymm1, %%ymm0, %%ymm0\n"
         "vpaddq %%ymm6, %%ymm0, %%ymm0\n"
 
-        "vpand %%ymm0, %%ymm5, %%ymm6\n"    // and with upMask
-        "vpsrlq $32, %%ymm6, %%ymm6\n"      // new rest
         "vpand %%ymm0, %%ymm4, %%ymm0\n"    // and with lowerMap
         "vmovdqu %%ymm0, (%[temp])\n"       // back in temp
-        "vmovdqu %%ymm6, (%[carry])\n"
         : [a]"+r" (a), [b]"+r" (b), [upMask]"+r" (upMask), [lowMask]"+r" (lowMask)
-        , [temp] "+r" (out), [carry] "+r" (carry)
+        , [temp] "+r" (out)
         :
         : "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "rax", "rbx", "rcx", "rdx", "memory"
     );
@@ -497,14 +494,14 @@ static inline void print_fp(vec256 *out, char *str) {
 }
 
 void simd_mul_fp(vec256 *out, vec256 *a, vec256 *b) {
-    vec256 temp[16] = {0}, carry = {0}, mx[2] = {0};
+    vec256 temp[16] = {0}, mx[2] = {0};
 
     mul_ass_384_fixed_b(temp, a, b, &lowMask, &upMask);
     mul_ass_64(mx, temp, n0, &lowMask, &upMask);
 
     for(int j = 0; ;) {
         memmove(temp[14], temp[12], 2 * sizeof(vec256));
-        mul_ass_384_fixed_b_shift(temp, prime, mx, &lowMask, &upMask, &carry);
+        mul_ass_384_fixed_b_shift(temp, prime, mx, &lowMask, &upMask);
         memmove(temp, temp[2], 14 * sizeof(vec256));
 
         j +=2;
