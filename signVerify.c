@@ -260,7 +260,7 @@ void signVerifyMessagesInPairs (int num_messages, double *time, blst_p2 *sigs, b
     } else {
         printf("Signature aggr is INVALID ❌");
     }
-    printf("\n\n");
+    printf("\n");
 }
 
 void signVerifyMessagesByFour (int num_messages, double *time, blst_p2 *sigs, blst_p1 *pks, uint8_t *msg_bytes) {
@@ -282,7 +282,7 @@ void signVerifyMessagesByFour (int num_messages, double *time, blst_p2 *sigs, bl
     } else {
         printf("Signature aggr is INVALID ❌");
     }
-    printf("\n\n");
+    printf("\n");
 }
 
 void generate(int num_messages, blst_p2 *sigs, blst_p1 *pks, uint8_t *msg_bytes) {
@@ -318,7 +318,7 @@ int main() {
     uint8_t msg_bytes[48];
     generate(NUM_MESSAGES, sigs, pks, msg_bytes);
     signVerifyMessagesInPairs(NUM_MESSAGES, &time, sigs, pks, msg_bytes);
-    printf("signVerifyMessagesInPairs\n\n");
+    printf("signVerifyMessagesInPairs\n");
     printf("- Time (nsec): \t%.0f\n", time);
     printf("- Time (sec): \t%.6f\n\n", time / FOR_SEC);
     signVerifyMessagesByFour(NUM_MESSAGES, &time, sigs, pks, msg_bytes);

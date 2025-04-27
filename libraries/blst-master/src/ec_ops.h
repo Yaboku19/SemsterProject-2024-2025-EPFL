@@ -290,6 +290,32 @@ static void ptype##_add(ptype *out, const ptype *p1, const ptype *p2) \
     } \
 })
 
+#define IS_ZERO_fp(point, out) ({ \
+    for (int i = 0; i < 6; i++) { \
+        for (int j = 0; j < 4; j++) { \
+            if (!out[j] && point[i][j] != 0) { \
+                out[j] = 1; \
+            } \
+        } \
+    } \
+})
+
+#define IS_ZERO_fp2(point, out) ({ \
+    for (int i = 0; i < 6; i++) { \
+        for (int j = 0; j < 4; j++) { \
+            if (!out[j] && (point[0][i][j] != 0 || point[1][i][j] != 0)) { \
+                out[j] = 1; \
+            } \
+        } \
+    } \
+})
+
+#define SELECT_VECT(out, a, b, c, size, cond1, cond2) ({ \
+    for (int i = 0; i < 4; i++) { \
+        memmove(&out[i], cond1[i] ? &a[i] : cond2[i] ? &b[i] : &c[i], size); \
+    } \
+})
+
 #define POINT_ADD_IMPL_FOUR(ptype, bits, field) \
 static void ptype##_add_four(ptype *out, ptype *p1, ptype *p2) \
 { \
@@ -298,17 +324,7 @@ static void ptype##_add_four(ptype *out, ptype *p1, ptype *p2) \
     fourVec##bits p1x, p1y, p1z; \
     fourVec##bits p2x, p2y, p2z; \
     fourVec##bits p3x, p3y, p3z; \
-    bool_t p1inf[4], p2inf[4]; \
-\
-    p1inf[0] = vec_is_zero(p1[0].Z, sizeof(p1[0].Z)); \
-    p1inf[1] = vec_is_zero(p1[1].Z, sizeof(p1[1].Z)); \
-    p1inf[2] = vec_is_zero(p1[2].Z, sizeof(p1[2].Z)); \
-    p1inf[3] = vec_is_zero(p1[3].Z, sizeof(p1[3].Z)); \
-\
-    p2inf[0] = vec_is_zero(p2[0].Z, sizeof(p2[0].Z)); \
-    p2inf[1] = vec_is_zero(p2[1].Z, sizeof(p2[1].Z)); \
-    p2inf[2] = vec_is_zero(p2[2].Z, sizeof(p2[2].Z)); \
-    p2inf[3] = vec_is_zero(p2[3].Z, sizeof(p2[3].Z)); \
+    bool_t p1inf[4] = {0}, p2inf[4] = {0}; \
 \
     COPY_FROM_POINT_TO_ARRAY_##bits(p1x, p1, X); \
     COPY_FROM_POINT_TO_ARRAY_##bits(p1y, p1, Y); \
@@ -317,6 +333,9 @@ static void ptype##_add_four(ptype *out, ptype *p1, ptype *p2) \
     COPY_FROM_POINT_TO_ARRAY_##bits(p2x, p2, X); \
     COPY_FROM_POINT_TO_ARRAY_##bits(p2y, p2, Y); \
     COPY_FROM_POINT_TO_ARRAY_##bits(p2z, p2, Z); \
+\
+    IS_ZERO_##field(p1z, p1inf);\
+    IS_ZERO_##field(p2z, p2inf);\
 \
     simd_mul_##field(Z1Z1, p1z, p1z);                /* Z1Z1 = Z1 ^ 2 */ \
 \
@@ -372,15 +391,7 @@ static void ptype##_add_four(ptype *out, ptype *p1, ptype *p2) \
     COPY_FROM_ARRAY_TO_POINT_##bits(p3, p3y, Y); \
     COPY_FROM_ARRAY_TO_POINT_##bits(p3, p3z, Z); \
 \
-    vec_select(&p3[0], &p1c[0], &p3[0], sizeof(ptype), p2inf[0]); \
-    vec_select(&p3[1], &p1c[1], &p3[1], sizeof(ptype), p2inf[1]); \
-    vec_select(&p3[2], &p1c[2], &p3[2], sizeof(ptype), p2inf[2]); \
-    vec_select(&p3[3], &p1c[3], &p3[3], sizeof(ptype), p2inf[3]); \
-\
-    vec_select(&out[0], &p2c[0], &p3[0], sizeof(ptype), p1inf[0]); \
-    vec_select(&out[1], &p2c[1], &p3[1], sizeof(ptype), p1inf[1]); \
-    vec_select(&out[2], &p2c[2], &p3[2], sizeof(ptype), p1inf[2]); \
-    vec_select(&out[3], &p2c[3], &p3[3], sizeof(ptype), p1inf[3]); \
+    SELECT_VECT(out, p2c, p1c, p3, sizeof(ptype), p1inf, p2inf); \
 }
 
 /*
