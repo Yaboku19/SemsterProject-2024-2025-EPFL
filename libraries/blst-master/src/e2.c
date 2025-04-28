@@ -418,44 +418,96 @@ POINT_ADD_AFFINE_IMPL(POINTonE2, 384x, fp2, BLS12_381_Rx.p2)
 POINT_DOUBLE_IMPL_A0(POINTonE2, 384x, fp2)
 POINT_IS_EQUAL_IMPL(POINTonE2, 384x, fp2)
 
+#define COPY_FROM_POINT_TO_ARRAY(to, from, coordinate, times) ({ \
+    for(int k = 0; k < times; k++) { \
+        for (int j = 0; j < 2; j++ ) { \
+            for (int i = 0; i < 6; i++) { \
+                to[k][j][i * 2][0] = from[0 + (k * 4)].coordinate[j][i] & 0xFFFFFFFF; \
+                to[k][j][i * 2][1] = from[1 + (k * 4)].coordinate[j][i] & 0xFFFFFFFF; \
+                to[k][j][i * 2][2] = from[2 + (k * 4)].coordinate[j][i] & 0xFFFFFFFF; \
+                to[k][j][i * 2][3] = from[3 + (k * 4)].coordinate[j][i] & 0xFFFFFFFF; \
+                to[k][j][i * 2 + 1][0] = from[0 + (k * 4)].coordinate[j][i] >> 32; \
+                to[k][j][i * 2 + 1][1] = from[1 + (k * 4)].coordinate[j][i] >> 32; \
+                to[k][j][i * 2 + 1][2] = from[2 + (k * 4)].coordinate[j][i] >> 32; \
+                to[k][j][i * 2 + 1][3] = from[3 + (k * 4)].coordinate[j][i] >> 32; \
+            } \
+        } \
+    } \
+})
+
+#define COPY_FROM_ARRAY_TO_POINT(to, from, coordinate) ({ \
+    for (int j = 0; j < 2; j++) { \
+        for (int i = 0; i < 4; i++) { \
+            to[i].coordinate[j][0] = from[j][0][i] | (from[j][1][i] << 32); \
+            to[i].coordinate[j][1] = from[j][2][i] | (from[j][3][i] << 32); \
+            to[i].coordinate[j][2] = from[j][4][i] | (from[j][5][i] << 32); \
+            to[i].coordinate[j][3] = from[j][6][i] | (from[j][7][i] << 32); \
+            to[i].coordinate[j][4] = from[j][8][i] | (from[j][9][i] << 32); \
+            to[i].coordinate[j][5] = from[j][10][i] | (from[j][11][i] << 32); \
+        } \
+    } \
+})
+
 void blst_p2_add(POINTonE2 *out, const POINTonE2 *a, const POINTonE2 *b)
 {   POINTonE2_add(out, a, b);   }
 
 void blst_four_p2_add(POINTonE2 *out, POINTonE2 *signs, int n) {
-    POINTonE2 temp[4], fs[4], sd[4];
-    int i = 0, k = 0;
-    int new_n = n;
-    int groups = new_n / 8;
-    while (groups > 0) {
-        for (k = 0; k < groups; k ++) {
-            for(i = 0; i < 8; i += 2) {
-                fs[i / 2] = signs[i + k * 8]; 
-                sd[i / 2] = signs[i + 1 + k * 8];
+    if (n < 4) {
+        while (n > 1) {
+            for (int k = 0; k < n / 2; k++) {
+                POINTonE2_add(&signs[k], &signs[2 * k], &signs[2 * k + 1]);
             }
-            POINTonE2_add_four(temp, fs, sd);
-            for(i = 0; i < 4; i += 1) {
-                signs[i + k * 4] = temp[i];
+            if (n % 2 == 1) {
+                signs[n/2] = signs[n-1];
+                n = n/2 + 1;
+            } else {
+                n /= 2;
             }
         }
-        for (k = 0; k < new_n - (groups * 8); k++) {
-            signs[(groups * 4) + k] = signs[(groups * 8) + k];
-        }
-        new_n = (groups * 4) + k;
-        groups = new_n / 8;
+        *out = signs[0];
+        return;
     }
-    while(new_n > 1) {
+
+    int groups = n / 4;
+    int rest = n % 4;
+    int new_n = 4 + rest;
+    fourVec384x px[groups], py[groups], pz[groups];
+    COPY_FROM_POINT_TO_ARRAY(px, signs, X, groups);
+    COPY_FROM_POINT_TO_ARRAY(py, signs, Y, groups);
+    COPY_FROM_POINT_TO_ARRAY(pz, signs, Z, groups);
+    int k = 0;
+    while (groups > 1) {
+        for (k = 0; k < groups; k += 2) {
+            POINTonE2_add_four(px[k/2], py[k/2], pz[k/2], px[k], py[k], pz[k], px[k + 1], py[k + 1], pz[k + 1]);
+        }
+        if (groups % 2 == 1) {
+            memmove(&px[(k - 2)/2], px[groups - 1], sizeof(px[0]));
+            memmove(&py[(k - 2)/2], py[groups - 1], sizeof(py[0]));
+            memmove(&pz[(k - 2)/2], pz[groups - 1], sizeof(pz[0]));
+            groups++;
+        }
+        groups /= 2;
+    }
+    POINTonE2 final[new_n];
+    COPY_FROM_ARRAY_TO_POINT(final, px[0], X);
+    COPY_FROM_ARRAY_TO_POINT(final, py[0], Y);
+    COPY_FROM_ARRAY_TO_POINT(final, pz[0], Z);
+    for (k = new_n - 1; k > new_n - 1 - rest; k--) {
+        memcpy(&final[k], &signs[k], sizeof(POINTonE2));
+    }
+    while (new_n > 1) {
         groups = new_n / 2;
-        for (k = 0; k < groups; k ++) {
-            POINTonE2_add(&signs[k], &signs[k * 2], &signs[(k * 2) + 1]);
+        for (k = 0; k < groups; k++) {
+            POINTonE2_add(&final[k], &final[k * 2], &final[k * 2 + 1]);
         }
         if (groups * 2 < new_n) {
-            signs[groups] = signs[groups * 2];
+            final[groups] = final[groups * 2];
             new_n = groups + 1;
         } else {
             new_n = groups;
         }
     }
-    *out = signs[0];
+    *out = final[0];
 }
 
 void blst_p2_add_or_double(POINTonE2 *out, const POINTonE2 *a,

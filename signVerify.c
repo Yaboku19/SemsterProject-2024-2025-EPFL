@@ -271,7 +271,7 @@ void signVerifyMessagesByFour (int num_messages, double *time, blst_p2 *sigs, bl
     struct timespec start, end;
     clock_gettime(CLOCK_MONOTONIC, &start);
     /* Aggregate signatures */
-    aggrSignaturesFourByFour(&agr_sig, &agr_sig_affine, sigs, num_messages);
+    aggrSignaturesInPairs(&agr_sig, &agr_sig_affine, sigs, num_messages);
     /* Aggregate public keys */
     aggrPublicKeysFourByFour(&agr_pk, &agr_pk_affine, pks, num_messages);
     clock_gettime(CLOCK_MONOTONIC, &end);

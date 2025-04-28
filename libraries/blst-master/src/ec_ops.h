@@ -179,10 +179,20 @@ static void ptype##_dadd_affine(ptype *out, const ptype *p1, \
     vec_select(out, p1, &p3, sizeof(ptype), p2inf); \
 }
 
+#define print_384(x) ({ \
+    printf("Z1Z1: %016lx", x[5]); \
+    for(int i = 4; i > -1; i--) { \
+        printf("_%016lx", x[i]); \
+    } \
+    printf("\n"); \
+})
+#define print_384x(x) ({ \
+})
 /*
  * https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-add-2007-bl
  * with twist to handle either input at infinity, which are encoded as Z==0.
  */
+#include "stdio.h"
 #define POINT_ADD_IMPL(ptype, bits, field) \
 static void ptype##_add(ptype *out, const ptype *p1, const ptype *p2) \
 { \
@@ -238,101 +248,90 @@ static void ptype##_add(ptype *out, const ptype *p1, const ptype *p2) \
     vec_select(out, p2, &p3, sizeof(ptype), p1inf); \
 }
 
-#define COPY_FROM_POINT_TO_ARRAY_384(to, from, coordinate) ({ \
-        for (int i = 0; i < 6; i++) { \
-            to[i * 2][0] = from[0].coordinate[i] & 0xFFFFFFFF; \
-            to[i * 2][1] = from[1].coordinate[i] & 0xFFFFFFFF; \
-            to[i * 2][2] = from[2].coordinate[i] & 0xFFFFFFFF; \
-            to[i * 2][3] = from[3].coordinate[i] & 0xFFFFFFFF; \
-            to[i * 2 + 1][0] = from[0].coordinate[i] >> 32; \
-            to[i * 2 + 1][1] = from[1].coordinate[i] >> 32; \
-            to[i * 2 + 1][2] = from[2].coordinate[i] >> 32; \
-            to[i * 2 + 1][3] = from[3].coordinate[i] >> 32; \
-        } \
-})
-
-#define COPY_FROM_ARRAY_TO_POINT_384(to, from, coordinate) ({ \
-    for (int i = 0; i < 4; i++) { \
-        to[i].coordinate[0] = from[0][i] | (from[1][i] << 32); \
-        to[i].coordinate[1] = from[2][i] | (from[3][i] << 32); \
-        to[i].coordinate[2] = from[4][i] | (from[5][i] << 32); \
-        to[i].coordinate[3] = from[6][i] | (from[7][i] << 32); \
-        to[i].coordinate[4] = from[8][i] | (from[9][i] << 32); \
-        to[i].coordinate[5] = from[10][i] | (from[11][i] << 32); \
-    } \
-})
-
-#define COPY_FROM_POINT_TO_ARRAY_384x(to, from, coordinate) ({ \
-    for (int j = 0; j < 2; j++ ) { \
-        for (int i = 0; i < 6; i++) { \
-            to[j][i * 2][0] = from[0].coordinate[j][i] & 0xFFFFFFFF; \
-            to[j][i * 2][1] = from[1].coordinate[j][i] & 0xFFFFFFFF; \
-            to[j][i * 2][2] = from[2].coordinate[j][i] & 0xFFFFFFFF; \
-            to[j][i * 2][3] = from[3].coordinate[j][i] & 0xFFFFFFFF; \
-            to[j][i * 2 + 1][0] = from[0].coordinate[j][i] >> 32; \
-            to[j][i * 2 + 1][1] = from[1].coordinate[j][i] >> 32; \
-            to[j][i * 2 + 1][2] = from[2].coordinate[j][i] >> 32; \
-            to[j][i * 2 + 1][3] = from[3].coordinate[j][i] >> 32; \
-        } \
-    } \
-})
-
-#define COPY_FROM_ARRAY_TO_POINT_384x(to, from, coordinate) ({ \
-    for (int j = 0; j < 2; j++) { \
-        for (int i = 0; i < 4; i++) { \
-            to[i].coordinate[j][0] = from[j][0][i] | (from[j][1][i] << 32); \
-            to[i].coordinate[j][1] = from[j][2][i] | (from[j][3][i] << 32); \
-            to[i].coordinate[j][2] = from[j][4][i] | (from[j][5][i] << 32); \
-            to[i].coordinate[j][3] = from[j][6][i] | (from[j][7][i] << 32); \
-            to[i].coordinate[j][4] = from[j][8][i] | (from[j][9][i] << 32); \
-            to[i].coordinate[j][5] = from[j][10][i] | (from[j][11][i] << 32); \
-        } \
-    } \
-})
-
 #define IS_ZERO_fp(point, out) ({ \
-    for (int i = 0; i < 6; i++) { \
+    for (int i = 0; i < 12; i++) { \
         for (int j = 0; j < 4; j++) { \
-            if (!out[j] && point[i][j] != 0) { \
-                out[j] = 1; \
+            if (out[j] && point[i][j] != 0) { \
+                out[j] = 0; \
             } \
         } \
     } \
 })
 
 #define IS_ZERO_fp2(point, out) ({ \
-    for (int i = 0; i < 6; i++) { \
+    for (int i = 0; i < 12; i++) { \
         for (int j = 0; j < 4; j++) { \
-            if (!out[j] && (point[0][i][j] != 0 || point[1][i][j] != 0)) { \
-                out[j] = 1; \
+            if (out[j] && (point[0][i][j] != 0 || point[1][i][j] != 0)) { \
+                out[j] = 0; \
             } \
         } \
     } \
 })
 
-#define SELECT_VECT(out, a, b, c, size, cond1, cond2) ({ \
+#define SELECT_VECT_fp(outx, outy, outz, ax, ay, az, bx, by, bz, cx, cy, cz, cond1, cond2) ({ \
     for (int i = 0; i < 4; i++) { \
-        memmove(&out[i], cond1[i] ? &a[i] : cond2[i] ? &b[i] : &c[i], size); \
+        if(cond1[i]) { \
+            for(int j = 0; j < 12; j++) { \
+                outx[j][i] = ax[j][i]; \
+                outy[j][i] = ay[j][i]; \
+                outz[j][i] = az[j][i]; \
+            } \
+        } else if (cond2[i]) { \
+            for(int j = 0; j < 12; j++) { \
+                outx[j][i] = bx[j][i]; \
+                outy[j][i] = by[j][i]; \
+                outz[j][i] = bz[j][i]; \
+            } \
+        } else { \
+            for(int j = 0; j < 12; j++) { \
+                outx[j][i] = cx[j][i]; \
+                outy[j][i] = cy[j][i]; \
+                outz[j][i] = cz[j][i]; \
+            } \
+        } \
+    } \
+})
+
+#define SELECT_VECT_fp2(outx, outy, outz, ax, ay, az, bx, by, bz, cx, cy, cz, cond1, cond2) ({ \
+    for (int i = 0; i < 4; i++) { \
+        if(cond1[i]) { \
+            for(int j = 0; j < 12; j++) { \
+                outx[0][j][i] = ax[0][j][i]; \
+                outx[1][j][i] = ax[1][j][i]; \
+                outy[0][j][i] = ay[0][j][i]; \
+                outy[1][j][i] = ay[1][j][i]; \
+                outz[0][j][i] = az[0][j][i]; \
+                outz[1][j][i] = az[1][j][i]; \
+            } \
+        } else if (cond2[i]) { \
+            for(int j = 0; j < 12; j++) { \
+                outx[0][j][i] = bx[0][j][i]; \
+                outx[1][j][i] = bx[1][j][i]; \
+                outy[0][j][i] = by[0][j][i]; \
+                outy[1][j][i] = by[1][j][i]; \
+                outz[0][j][i] = bz[0][j][i]; \
+                outz[1][j][i] = bz[1][j][i]; \
+            } \
+        } else { \
+            for(int j = 0; j < 12; j++) { \
+                outx[0][j][i] = cx[0][j][i]; \
+                outx[1][j][i] = cx[1][j][i]; \
+                outy[0][j][i] = cy[0][j][i]; \
+                outy[1][j][i] = cy[1][j][i]; \
+                outz[0][j][i] = cz[0][j][i]; \
+                outz[1][j][i] = cz[1][j][i]; \
+            } \
+        } \
     } \
 })
 
 #define POINT_ADD_IMPL_FOUR(ptype, bits, field) \
-static void ptype##_add_four(ptype *out, ptype *p1, ptype *p2) \
+static void ptype##_add_four(fourVec##bits outx, fourVec##bits outy, fourVec##bits outz, \
+                            fourVec##bits p1x, fourVec##bits p1y, fourVec##bits p1z, \
+                            fourVec##bits p2x, fourVec##bits p2y, fourVec##bits p2z) \
 { \
-    ptype p3[4] = {0}, p1c[4], p2c[4]; \
-    fourVec##bits Z1Z1, Z2Z2, U1, S1, H, I, J; \
-    fourVec##bits p1x, p1y, p1z; \
-    fourVec##bits p2x, p2y, p2z; \
-    fourVec##bits p3x, p3y, p3z; \
-    bool_t p1inf[4] = {0}, p2inf[4] = {0}; \
-\
-    COPY_FROM_POINT_TO_ARRAY_##bits(p1x, p1, X); \
-    COPY_FROM_POINT_TO_ARRAY_##bits(p1y, p1, Y); \
-    COPY_FROM_POINT_TO_ARRAY_##bits(p1z, p1, Z); \
-\
-    COPY_FROM_POINT_TO_ARRAY_##bits(p2x, p2, X); \
-    COPY_FROM_POINT_TO_ARRAY_##bits(p2y, p2, Y); \
-    COPY_FROM_POINT_TO_ARRAY_##bits(p2z, p2, Z); \
+    fourVec##bits Z1Z1, Z2Z2, U1, S1, H, I, J, p3x, p3y = {0}, p3z = {0}; \
+    bool_t p1inf[4] = {1}, p2inf[4] = {1}; \
 \
     IS_ZERO_##field(p1z, p1inf);\
     IS_ZERO_##field(p2z, p2inf);\
@@ -379,25 +378,20 @@ static void ptype##_add_four(ptype *out, ptype *p1, ptype *p2) \
     simd_sub_##field(p3z, p3z, Z2Z2);               /* ( Z1 + Z2 ) ^ 2 - Z1Z1 - Z2Z2 */ \
     simd_mul_##field(p3z, p3z, H);                  /* Z3 = ( ( Z1 + Z2 ) ^ 2 - Z1Z1 - Z2Z2) * H */ \
 \
-    COPY_FROM_ARRAY_TO_POINT_##bits(p1c, p1x, X); \
-    COPY_FROM_ARRAY_TO_POINT_##bits(p1c, p1y, Y); \
-    COPY_FROM_ARRAY_TO_POINT_##bits(p1c, p1z, Z); \
-\
-    COPY_FROM_ARRAY_TO_POINT_##bits(p2c, p2x, X); \
-    COPY_FROM_ARRAY_TO_POINT_##bits(p2c, p2y, Y); \
-    COPY_FROM_ARRAY_TO_POINT_##bits(p2c, p2z, Z); \
-\
-    COPY_FROM_ARRAY_TO_POINT_##bits(p3, p3x, X); \
-    COPY_FROM_ARRAY_TO_POINT_##bits(p3, p3y, Y); \
-    COPY_FROM_ARRAY_TO_POINT_##bits(p3, p3z, Z); \
-\
-    SELECT_VECT(out, p2c, p1c, p3, sizeof(ptype), p1inf, p2inf); \
+    SELECT_VECT_##field(outx, outy, outz, p2x, p2y, p2z, p1x, p1x, p1z, p3x, p3y, p3z, p1inf, p2inf); \
 }
+
 
 /*
  * https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
  * with twist to handle either input at infinity, with |p1| encoded as Z==0,
  * and |p2| as X==Y==0.
+ * SELECT_VECT(out, p2c, p1c, p3, sizeof(ptype), p1inf, p2inf);
+Z1Z1: 1162e0d56c92bd5b_c878832906bfd228_2774a792fc491903_ab94b7e27ad07a8f_84a92f84eac6b908_67df2f1d5c5addc2
+      1162e0d56c92bd5b_c878832906bfd228_2774a792fc491903_ab94b7e27ad07a8f_84a92f84eac6b908_67df2f1d5c5addc2
+Z1Z1: 0651f51adf46476e_b0ccd388898740c0_dbac4dd67f2b8eec_e7338380b7193709_e0b09275014cd4c1_321f72a7b8680222
+Z1Z1: 15afb1b4d3e9bb89_62ea514faf48e8a8_f0c98e7ddb80d0b1_90fcd70562f4e86c_bfa15eb047028be8_1c1aa3a51dfca676
+      15afb1b4d3e9bb89_62ea514faf48e8a8_f0c98e7ddb80d0b1_90fcd70562f4e86c_bfa15eb047028be8_1c1aa3a51dfca676
  */
 #define POINT_ADD_AFFINE_IMPL(ptype, bits, field, one) \
 static void ptype##_add_affine(ptype *out, const ptype *p1, \
