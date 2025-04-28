@@ -55,26 +55,6 @@ vec256 lowMask = {0x00000000FFFFFFFF, 0x00000000FFFFFFFF, 0x00000000FFFFFFFF,0x0
 static inline void add_fp(vec384 ret, const vec384 a, const vec384 b)
 {   add_mod_384(ret, a, b, BLS12_381_P);   }
 
-void subModulo_v2 (vec256 *num_chunks, const vec384 primeNumber, int *indexes) {
-    for (int j = 0; j < 4; j++) {
-        if (indexes[j] == -1) {
-            break;
-        }
-        uint64_t carry = 0;
-        for (int i = 0; i < 12; i+=2) {
-            uint64_t num = ((num_chunks[i+1][indexes[j]] << 32) + num_chunks[i][indexes[j]]);
-            uint64_t new_value = num - primeNumber[i/2] - carry;
-            if(new_value > num && i != 5) {
-                carry = 1;
-            } else {
-                carry = 0;
-            }
-            num_chunks[i+1][indexes[j]] = new_value >> 32;
-            num_chunks[i][indexes[j]] = new_value & 0xFFFFFFFF;
-        }
-    }
-}
-
 static inline void sub_ass_384 (vec256 *out, vec256 *a, vec256 *b, vec256 *lowMask, vec256 *upMask) {
     asm volatile (
         "vmovdqu (%[lowMask]), %%ymm4\n"    // ymm4 for lowMask
@@ -130,33 +110,6 @@ void subModulo_v2_sub (vec256 *num_chunks) {
             for (int j = 0; j < 12; j++) {
                 num_chunks[j][i] = num_chunks_nev[j][i];
             }
-        }
-    }
-}
-
-void checkFourModulo384_v2 (vec256 *num_chunks, const vec384 primeNumber, int mode) {
-    int indexes[4] = {-1, -1, -1, -1};
-    int index = 0;
-    for (int j = 0; j < 4; j++) {
-        for (int i = 11; i > -1; i-=2) {
-            uint64_t num = (num_chunks[i][j] << 32) + num_chunks[i-1][j];
-            if (num < primeNumber[i/2]) {
-                break;
-            } else if (num > primeNumber[i/2]) {
-                indexes[index] = j;
-                index++;
-                break;
-            }
-        }
-    }
-    if (indexes[0] != -1) {
-        if (mode == 0) {
-            subModulo_v2(num_chunks, primeNumber, indexes);
-            checkFourModulo384_v2(num_chunks, primeNumber, 0);
-        } else {
-            vec384 numToSum = {0x4601000000005555, 0xe15400014eac0000, 0x98cf2d5f094f09db, 0x9b88b47b0c7aed40,
-                0xb4e45849bcb45328, 0xe5feee15c6801965};
-            subModulo_v2(num_chunks, numToSum, indexes);
         }
     }
 }
@@ -391,7 +344,7 @@ void simd_mul_fp(vec256 *out, vec256 *a, vec256 *b) {
         mul_ass_64(mx, temp, n0, &lowMask, &upMask);
     }
     memcpy(out, temp, sizeof(vec256) * 12);
-    checkFourModulo384_v2(out, BLS12_381_P, 0);
+    subModulo_v2_sum(out);
 }
 
 static inline void sub_fp(vec384 ret, const vec384 a, const vec384 b)

@@ -64,13 +64,12 @@ static inline void mul_ass_384_fixed_b (vec256 *out, vec256 *a, vec256 *b, vec25
         "sub %%rcx, %[temp]\n"              // resetting temp
         "add $32, %[temp]\n"
         "add $32, %[b]\n"                   // new pointer b
-
         "dec %%rax\n"                       // decrement counter
         "jg 1b\n"                          // if not zero, loop again
         : [a]"+r" (a), [b]"+r" (b), [upMask]"+r" (upMask), [lowMask]"+r" (lowMask)
         , [temp] "+r" (out)
         :
-        : "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "rax", "rbx", "rcx", "memory"
+        : "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "rax", "rbx", "rcx", "rdx", "memory"
     );
 }
 
@@ -119,7 +118,7 @@ static inline void mul_ass_64 (vec256 *out, vec256 *a, vec256 *b, vec256 *lowMas
     );
 }
 
-static inline void mul_ass_384_fixed_b_shift (vec256 *out, vec256 *a, vec256 *b, vec256 *lowMask, vec256 *upMask, vec256 *carry) {
+static inline void mul_ass_384_fixed_b_shift (vec256 *out, vec256 *a, vec256 *b, vec256 *lowMask, vec256 *upMask) {
     asm volatile (
         "vmovdqu (%[lowMask]), %%ymm4\n"    // ymm4 for lowMask
         "vmovdqu (%[upMask]), %%ymm5\n"     // ymm5 for upMask
@@ -177,17 +176,50 @@ static inline void mul_ass_384_fixed_b_shift (vec256 *out, vec256 *a, vec256 *b,
         "vpaddq %%ymm1, %%ymm0, %%ymm0\n"
         "vpaddq %%ymm6, %%ymm0, %%ymm0\n"
 
-        "vpand %%ymm0, %%ymm5, %%ymm6\n"    // and with upMask
-        "vpsrlq $32, %%ymm6, %%ymm6\n"      // new rest
         "vpand %%ymm0, %%ymm4, %%ymm0\n"    // and with lowerMap
         "vmovdqu %%ymm0, (%[temp])\n"       // back in temp
-        "vmovdqu %%ymm6, (%[carry])\n"
         : [a]"+r" (a), [b]"+r" (b), [upMask]"+r" (upMask), [lowMask]"+r" (lowMask)
-        , [temp] "+r" (out), [carry] "+r" (carry)
+        , [temp] "+r" (out)
         :
         : "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "rax", "rbx", "rcx", "rdx", "memory"
     );
 }
+
+static inline void sub_ass_384 (vec256 *out, vec256 *a, vec256 *b, vec256 *lowMask, vec256 *upMask) {
+    asm volatile (
+        "vmovdqu (%[lowMask]), %%ymm4\n"    // ymm4 for lowMask
+        "vmovdqu (%[upMask]), %%ymm5\n"     // ymm5 for upMask
+        "vpxor %%ymm6, %%ymm6, %%ymm6\n"    // ymm6 for rest
+        "vpxor %%ymm7, %%ymm7, %%ymm7\n"    // ymm6 for rest
+        "mov $11, %%rcx\n"                  // loop of 6
+    "1:\n"
+        "vmovdqu (%[a]), %%ymm0\n"          // first operand in ymm0
+        "vmovdqu (%[b]), %%ymm1\n"          // second operand in ymm1
+
+        "vpsubq %%ymm1, %%ymm0, %%ymm0\n"   // sum in ymm0
+        "vpsubq %%ymm6, %%ymm0, %%ymm0\n"   // sum the rest
+
+        "vpand %%ymm0, %%ymm4, %%ymm1\n"    // and with lowerMap
+        "vmovdqu %%ymm1, (%[c])\n"          // back in C
+
+        "vpand %%ymm0, %%ymm5, %%ymm6\n"    // and with upMask
+        "vpsrlq $32, %%ymm6, %%ymm6\n"      // new rest
+
+        "vpsubq %%ymm6, %%ymm7, %%ymm6\n"   // shift sign
+        "vpand %%ymm6, %%ymm4, %%ymm6\n"    // and with lowerMap
+
+        "add $32, %[a]\n"                   // new pointers
+        "add $32, %[b]\n"
+        "add $32, %[c]\n"
+
+        "dec %%rcx\n"                       // decrement counter
+        "jge 1b\n"                          // if not zero, loop again
+        : [a]"+r" (a), [b]"+r" (b), [c] "+r" (out), [upMask]"+r" (upMask), [lowMask]"+r" (lowMask)
+        :
+        : "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "ymm7", "rcx", "memory"
+    );
+}
+
 
 void mul_mont_n(__uint64_t ret[], const __uint64_t a[], const __uint64_t b[], const __uint64_t p[], __uint64_t n0, size_t n) {
     __uint128_t  limbx;
@@ -214,13 +246,6 @@ void mul_mont_n(__uint64_t ret[], const __uint64_t a[], const __uint64_t b[], co
     mx = n0*tmp[0];
     tmp[i] = hi;
     for (carry=0, j=0; ; ) {
-        if (j >= 3) {
-            printf("ris[%lx]:\t%lx",j, tmp[5]);
-            for(int i = 4; i > -1; i--) {
-                printf("_%lx", tmp[i]);
-            }
-            printf("\n\n");
-        }
         limbx = (mx * (__uint128_t )p[0]) + tmp[0];
         hi = (__uint64_t)(limbx >> 64);
         for (i=1; i<n; i++) {
@@ -231,16 +256,8 @@ void mul_mont_n(__uint64_t ret[], const __uint64_t a[], const __uint64_t b[], co
         limbx = tmp[i] + (hi + (__uint128_t )carry);
         tmp[i-1] = (__uint64_t)limbx;
         carry = (__uint64_t)(limbx >> 64);
-        if (j >= 3) {
-            printf("ris2[%lx]:\t%lx",j, tmp[5]);
-            for(int i = 4; i > -1; i--) {
-                printf("_%lx", tmp[i]);
-            }
-            printf("\n\n");
-        }
         if (++j==n)
             break;
-        printf("b[%lx] = %lx\n",j, b[j]);
         for (mx=b[j], hi=0, i=0; i<n; i++) {
             limbx = (mx * (__uint128_t )a[i] + hi) + tmp[i];
             tmp[i] = (__uint64_t)limbx;
@@ -251,14 +268,19 @@ void mul_mont_n(__uint64_t ret[], const __uint64_t a[], const __uint64_t b[], co
         limbx = hi + (__uint128_t )carry;
         tmp[i] = (__uint64_t)limbx;
         carry = (__uint64_t)(limbx >> 64);
-
     }
+    printf("carry: %lx\n\n", carry);
 
     for (borrow=0, i=0; i<n; i++) {
         limbx = tmp[i] - (p[i] + (__uint128_t )borrow);
         ret[i] = (__uint64_t)limbx;
         borrow = (__uint64_t)(limbx >> 64) & 1;
     }
+    printf("ret:\t%16lx", ret[5]);
+        for(int i = 4; i > -1; i --) {
+            printf("_%16lx", ret[i]);
+        }
+    printf("\n\n");
 
     mask = carry - borrow;
 
@@ -266,96 +288,95 @@ void mul_mont_n(__uint64_t ret[], const __uint64_t a[], const __uint64_t b[], co
         ret[i] = (ret[i] & ~mask) | (tmp[i] & mask);
 }
 
-static inline int isZero(vec256 *a) {
-    int condtion = 1;
-    for(int j = 0; j < 4; j++) {
-        for(int i = 0; i < 6; i++) {
-            if (a[i] != 0 ) {
-                condtion = 0;
-                break;
-            }
-        }
-    }
-    return condtion;
-}
-
 void mul_mont_n_2(vec256 *out, vec256 *a, vec256 *b) {
-    size_t n = 12;
-    vec256 temp[16] = {0}, carry = {0}, mx[2] = {0};
-
+    vec256 temp[16] = {0}, mx[2] = {0};
+    __uint64_t carry;
     mul_ass_384_fixed_b(temp, a, b, &lowMask, &upMask);
     mul_ass_64(mx, temp, n0, &lowMask, &upMask);
 
     for(int j = 0; ;) {
         memmove(temp[14], temp[12], 2 * sizeof(vec256));
-        mul_ass_384_fixed_b_shift(temp, prime, mx, &lowMask, &upMask, &carry);
+        mul_ass_384_fixed_b_shift(temp, prime, mx, &lowMask, &upMask);
         memmove(temp, temp[2], 14 * sizeof(vec256));
 
         j +=2;
-        if (j==n)
+        if (j==12)
             break;
-
+        
         mul_ass_384_fixed_b(temp, a, &b[j], &lowMask, &upMask);
         memset(mx, 0, sizeof(vec256) * 2);
         mul_ass_64(mx, temp, n0, &lowMask, &upMask);
     }
+    sub_ass_384(out, temp, prime, &lowMask, &upMask);
+    printf("ret:\t%08lx%08lx", out[11][0], out[10][0]);
+        for(int i = 9; i > -1; i -= 2) {
+            printf("_%08lx%08lx", out[i][0], out[i-1][0]);
+        }
+    printf("\n\n");
+    
     memcpy(out, temp, sizeof(vec256) * 12);
 }
 
 int main() {
-    //  12411094956edf70_e6da76eb26ef60dd_98bebf354dced295_5f6530e63fa0875a_fef39853a08661b2_e5e07fe36d6b0a9e    
-    //  12411094956edf70_e6da76eb26ef60dd_98bebf354dced295_5f6530e63fa0875a_fef39853a08661b2_e5e07fe36d6b0a9e              
-    __uint64_t a[6] = {0x5d7160ffc1915ece, 0x3d1e9cf5b265b226, 0x1cfdd1c2489dfd3e, 0x450caf0ac57b2c3, 0x7936d83e186ca72c, 0x1972b7d81caacb3c};
-    __uint64_t b[6] = {0x461620bd9e4841bb, 0xea93fe24d4641e9e, 0xcbe9de6cbb7d4e83, 0xf55c161b20f05f91, 0xd32185e0b7f86ac, 0x73ba60324611aaa};
+    /*
+        a[0]:    13feb3927ca422fd_49d66ce7036e2ffb_034c68e0d3b8ed55_64a10eb23853b29c_55045b46a393b867_44c0632a86f49ff2
+        b[0]:    13feb3927ca422fd_49d66ce7036e2ffb_034c68e0d3b8ed55_64a10eb23853b29c_55045b46a393b867_44c0632a86f49ff2
+        out[0]:  1a66d7a7647e9ffd_51cfbbab712f66d4_943b54f1acc5a8f9_76225f7379597509_84fa8e61bc40e4c1_a05a5d6ee59714b5
+                 1a66d7a7647e9ffd_51cfbbab712f66d4_943b54f1acc5a8f9_76225f7379597509_84fa8e61bc40e4c1_a05a5d6ee59714b5
+    outAfter[0]: 0065c5bd2afeb963_06b413f52de3b9fd_2fc4096cb940963a_0ef18cd282a87ee5_664e8e630aece4c1_e65b5d6ee5976a0a
+                 0065c5bd2afeb963_06b413f52de3b9fd_2fc4096cb940963a_0ef18cd282a87ee5_664e8e630aece4c1_e65b5d6ee5976a0a
+    */            
+    __uint64_t a[6] = {0x44c0632a86f49ff2, 0x55045b46a393b867, 0x64a10eb23853b29c, 0x034c68e0d3b8ed55, 0x49d66ce7036e2ffb, 0x13feb3927ca422fd};
+    __uint64_t b[6] = {0x44c0632a86f49ff2, 0x55045b46a393b867, 0x64a10eb23853b29c, 0x034c68e0d3b8ed55, 0x49d66ce7036e2ffb, 0x13feb3927ca422fd};
     __uint64_t p[6] = {0xb9feffffffffaaab, 0x1eabfffeb153ffff, 0x6730d2a0f6b0f624, 0x64774b84f38512bf, 0x4b1ba7b6434bacd7, 0x1a0111ea397fe69a};
     __uint64_t ris[6];
     __uint64_t n0 = 0x89f3fffcfffcfffd;
     mul_mont_n(ris, a, b, p, n0, 6);
 
     vec256 four_a[13] = {
-        {0xc1915ece, 0xc1915ece, 0xc1915ece, 0xc1915ece},
-        {0x5d7160ff, 0x5d7160ff, 0x5d7160ff, 0x5d7160ff},
-        {0xb265b226, 0xb265b226, 0xb265b226, 0xb265b226},
-        {0x3d1e9cf5, 0x3d1e9cf5, 0x3d1e9cf5, 0x3d1e9cf5},
-        {0x489dfd3e, 0x489dfd3e, 0x489dfd3e, 0x489dfd3e},
-        {0x1cfdd1c2, 0x1cfdd1c2, 0x1cfdd1c2, 0x1cfdd1c2},
-        {0xac57b2c3, 0xac57b2c3, 0xac57b2c3, 0xac57b2c3},
-        {0x0450caf0, 0x0450caf0, 0x0450caf0, 0x0450caf0},
-        {0x186ca72c, 0x186ca72c, 0x186ca72c, 0x186ca72c},
-        {0x7936d83e, 0x7936d83e, 0x7936d83e, 0x7936d83e},
-        {0x1caacb3c, 0x1caacb3c, 0x1caacb3c, 0x1caacb3c},
-        {0x1972b7d8, 0x1972b7d8, 0x1972b7d8, 0x1972b7d8},
+        {0x86f49ff2, 0x86f49ff2, 0x86f49ff2, 0x86f49ff2},
+        {0x44c0632a, 0x44c0632a, 0x44c0632a, 0x44c0632a},
+        {0xa393b867, 0xa393b867, 0xa393b867, 0xa393b867},
+        {0x55045b46, 0x55045b46, 0x55045b46, 0x55045b46},
+        {0x3853b29c, 0x3853b29c, 0x3853b29c, 0x3853b29c},
+        {0x64a10eb2, 0x64a10eb2, 0x64a10eb2, 0x64a10eb2},
+        {0xd3b8ed55, 0xd3b8ed55, 0xd3b8ed55, 0xd3b8ed55},
+        {0x34c68e0, 0x34c68e0, 0x34c68e0, 0x34c68e0},
+        {0x36e2ffb, 0x36e2ffb, 0x36e2ffb, 0x36e2ffb},
+        {0x49d66ce7, 0x49d66ce7, 0x49d66ce7, 0x49d66ce7},
+        {0x7ca422fd, 0x7ca422fd, 0x7ca422fd, 0x7ca422fd},
+        {0x13feb392, 0x13feb392, 0x13feb392, 0x13feb392},
         {0x0, 0x0, 0x0, 0x0}
     };
 
     vec256 four_b[13] = {
-        {0x9e4841bb, 0x9e4841bb, 0x9e4841bb, 0x9e4841bb},
-        {0x461620bd, 0x461620bd, 0x461620bd, 0x461620bd},
-        {0xd4641e9e, 0xd4641e9e, 0xd4641e9e, 0xd4641e9e},
-        {0xea93fe24, 0xea93fe24, 0xea93fe24, 0xea93fe24},
-        {0xbb7d4e83, 0xbb7d4e83, 0xbb7d4e83, 0xbb7d4e83},
-        {0xcbe9de6c, 0xcbe9de6c, 0xcbe9de6c, 0xcbe9de6c},
-        {0x20f05f91, 0x20f05f91, 0x20f05f91, 0x20f05f91},
-        {0xf55c161b, 0xf55c161b, 0xf55c161b, 0xf55c161b},
-        {0x0b7f86ac, 0x0b7f86ac, 0x0b7f86ac, 0x0b7f86ac},
-        {0xd32185e0, 0xd32185e0, 0xd32185e0, 0xd32185e0},
-        {0x24611aaa, 0x24611aaa, 0x24611aaa, 0x24611aaa},
-        {0x73ba603, 0x73ba603, 0x73ba603, 0x73ba603},
+        {0x86f49ff2, 0x86f49ff2, 0x86f49ff2, 0x86f49ff2},
+        {0x44c0632a, 0x44c0632a, 0x44c0632a, 0x44c0632a},
+        {0xa393b867, 0xa393b867, 0xa393b867, 0xa393b867},
+        {0x55045b46, 0x55045b46, 0x55045b46, 0x55045b46},
+        {0x3853b29c, 0x3853b29c, 0x3853b29c, 0x3853b29c},
+        {0x64a10eb2, 0x64a10eb2, 0x64a10eb2, 0x64a10eb2},
+        {0xd3b8ed55, 0xd3b8ed55, 0xd3b8ed55, 0xd3b8ed55},
+        {0x34c68e0, 0x34c68e0, 0x34c68e0, 0x34c68e0},
+        {0x36e2ffb, 0x36e2ffb, 0x36e2ffb, 0x36e2ffb},
+        {0x49d66ce7, 0x49d66ce7, 0x49d66ce7, 0x49d66ce7},
+        {0x7ca422fd, 0x7ca422fd, 0x7ca422fd, 0x7ca422fd},
+        {0x13feb392, 0x13feb392, 0x13feb392, 0x13feb392},
         {0x0, 0x0, 0x0, 0x0}
     };
     vec256 four_ris[13];
     mul_mont_n_2(four_ris, four_a, four_b);
-    // for(int j = 0; j < 4; j ++) {
-    //     printf("ris[%d]:\t%08lx%08lx", j, four_ris[11][j], four_ris[10][j]);
-    //     for(int i = 9; i > -1; i-=2) {
-    //         printf("_%08lx%08lx", four_ris[i][j], four_ris[i-1][j]);
-    //     }
-    //     printf("\n");
-    // }
-    // printf("\n");
-    // printf("ris:\t%lx", ris[5]);
-    // for(int i = 4; i > -1; i--) {
-    //     printf("_%lx", ris[i]);
-    // }
-    // printf("\n");
+    for(int j = 0; j < 4; j ++) {
+        printf("ris[%d]:\t%08lx%08lx", j, four_ris[11][j], four_ris[10][j]);
+        for(int i = 9; i > -1; i-=2) {
+            printf("_%08lx%08lx", four_ris[i][j], four_ris[i-1][j]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+    printf("ris:\t%lx", ris[5]);
+    for(int i = 4; i > -1; i--) {
+        printf("_%lx", ris[i]);
+    }
+    printf("\n");
 }
