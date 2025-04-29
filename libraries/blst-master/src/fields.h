@@ -46,6 +46,9 @@ vec256 sub_mod_num[12] = {
     {0xe5feee15, 0xe5feee15, 0xe5feee15, 0xe5feee15}, // 0xe5feee15
 };
 
+vec384 numToSub = {0x4601000000005555, 0xe15400014eac0000, 0x98cf2d5f094f09db, 0x9b88b47b0c7aed40,
+    0xb4e45849bcb45328, 0xe5feee15c6801965};
+
 vec256 upMask = {0xFFFFFFFF00000000, 0xFFFFFFFF00000000, 0xFFFFFFFF00000000, 0xFFFFFFFF00000000};
 vec256 lowMask = {0x00000000FFFFFFFF, 0x00000000FFFFFFFF, 0x00000000FFFFFFFF,0x00000000FFFFFFFF};
 
@@ -110,6 +113,50 @@ void subModulo_v2_sub (vec256 *num_chunks) {
             for (int j = 0; j < 12; j++) {
                 num_chunks[j][i] = num_chunks_nev[j][i];
             }
+        }
+    }
+}
+
+void subModulo_v2 (vec256 *num_chunks, const vec384 mode, int *indexes) {
+    for (int j = 0; j < 4; j++) {
+        if (indexes[j] == -1) {
+            break;
+        }
+        uint64_t carry = 0;
+        for (int i = 0; i < 12; i+=2) {
+            uint64_t num = ((num_chunks[i+1][indexes[j]] << 32) + num_chunks[i][indexes[j]]);
+            uint64_t new_value = num - mode[i/2] - carry;
+            if(new_value > num && i != 5) {
+                carry = 1;
+            } else {
+                carry = 0;
+            }
+            num_chunks[i+1][indexes[j]] = new_value >> 32;
+            num_chunks[i][indexes[j]] = new_value & 0xFFFFFFFF;
+        }
+    }
+}
+
+void checkFourModulo384_v2 (vec256 *num_chunks, int mode) {
+    int indexes[4] = {-1, -1, -1, -1};
+    int index = 0;
+    for (int j = 0; j < 4; j++) {
+        for (int i = 11; i > -1; i-=2) {
+            uint64_t num = (num_chunks[i][j] << 32) + num_chunks[i-1][j];
+            if (num < BLS12_381_P[i/2]) {
+                break;
+            } else if (num > BLS12_381_P[i/2]) {
+                indexes[index] = j;
+                index++;
+                break;
+            }
+        }
+    }
+    if (indexes[0] != -1) {
+        if (mode == 0) {
+            subModulo_v2(num_chunks, BLS12_381_P, indexes);
+        } else {
+            subModulo_v2(num_chunks, numToSub, indexes);
         }
     }
 }
@@ -305,12 +352,14 @@ static inline void mul_ass_384_fixed_b_shift (vec256 *out, vec256 *a, vec256 *b,
 
 static inline void simd_add_fp(vec256 *out, vec256 *a, vec256 *b) {
     add_ass_384(out, a, b, &lowMask, &upMask);
-    subModulo_v2_sum(out);
+    // subModulo_v2_sum(out); looks slower
+    checkFourModulo384_v2(out, 0);
 }
 
 static inline void simd_sub_fp(vec256 *out, vec256 *a, vec256 *b) {
     sub_ass_384(out, a, b, &lowMask, &upMask);
-    subModulo_v2_sub(out);
+    // subModulo_v2_sub(out);
+    checkFourModulo384_v2(out, 1);
 }
 
 static inline void print_fp(vec256 *out, char *str) {
@@ -344,7 +393,8 @@ void simd_mul_fp(vec256 *out, vec256 *a, vec256 *b) {
         mul_ass_64(mx, temp, n0, &lowMask, &upMask);
     }
     memcpy(out, temp, sizeof(vec256) * 12);
-    subModulo_v2_sum(out);
+    // subModulo_v2_sum(out);
+    checkFourModulo384_v2(out, 0);
 }
 
 static inline void sub_fp(vec384 ret, const vec384 a, const vec384 b)

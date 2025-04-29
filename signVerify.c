@@ -9,7 +9,7 @@
 
 #define DST "BLS_SIG_DST"
 #define FOR_SEC 1000000000.0
-#define NUM_MESSAGES 100
+#define NUM_MESSAGES 1000
 
 void generateKeys (blst_scalar *sk, blst_p1 *pk, uint8_t *pk_bytes, blst_p1_affine* pk_affine) {
     uint8_t ikm[32];
