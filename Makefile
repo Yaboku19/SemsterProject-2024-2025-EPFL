@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -pg -g -mavx2 -O2 -mavx512f -mavx512dq -I libraries/blst-master
+CFLAGS = -g -mavx2 -O2 -mavx512f -mavx512dq -I libraries/blst-master
 LDFLAGS = -L libraries/blst-master -lblst
 
 SUMMUL = runSumMul.o
