@@ -9,7 +9,7 @@
 
 #define DST "BLS_SIG_DST"
 #define FOR_SEC 1000000000.0
-#define NUM_MESSAGES 1000
+#define NUM_MESSAGES 10000
 
 void generateKeys (blst_scalar *sk, blst_p1 *pk, uint8_t *pk_bytes, blst_p1_affine* pk_affine) {
     uint8_t ikm[32];
@@ -247,10 +247,10 @@ void signVerifyMessagesInPairs (int num_messages, double *time, blst_p2 *sigs, b
     blst_p2 agr_sig;
     blst_p2_affine agr_sig_affine;
     struct timespec start, end;
-    clock_gettime(CLOCK_MONOTONIC, &start);
     /* Aggregate signatures */
     aggrSignaturesInPairs(&agr_sig, &agr_sig_affine, sigs, num_messages);
     /* Aggregate public keys */
+    clock_gettime(CLOCK_MONOTONIC, &start);
     aggrPublicKeysInPairs(&agr_pk, &agr_pk_affine, pks, num_messages);
     clock_gettime(CLOCK_MONOTONIC, &end);
     *time = (double)(end.tv_sec - start.tv_sec) * FOR_SEC + (double)(end.tv_nsec - start.tv_nsec);
@@ -269,10 +269,10 @@ void signVerifyMessagesByFour (int num_messages, double *time, blst_p2 *sigs, bl
     blst_p2 agr_sig;
     blst_p2_affine agr_sig_affine;
     struct timespec start, end;
-    clock_gettime(CLOCK_MONOTONIC, &start);
     /* Aggregate signatures */
     aggrSignaturesInPairs(&agr_sig, &agr_sig_affine, sigs, num_messages);
     /* Aggregate public keys */
+    clock_gettime(CLOCK_MONOTONIC, &start);
     aggrPublicKeysFourByFour(&agr_pk, &agr_pk_affine, pks, num_messages);
     clock_gettime(CLOCK_MONOTONIC, &end);
     *time = (double)(end.tv_sec - start.tv_sec) * FOR_SEC + (double)(end.tv_nsec - start.tv_nsec);
