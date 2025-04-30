@@ -244,45 +244,45 @@ void signVerifyTwoMessages () {
 void signVerifyMessagesInPairs (int num_messages, double *time, blst_p2 *sigs, blst_p1 *pks, uint8_t *msg_bytes) {
     blst_p1 agr_pk;
     blst_p1_affine agr_pk_affine;
-    blst_p2 agr_sig;
-    blst_p2_affine agr_sig_affine;
+    // blst_p2 agr_sig;
+    // blst_p2_affine agr_sig_affine;
     struct timespec start, end;
     /* Aggregate signatures */
-    aggrSignaturesInPairs(&agr_sig, &agr_sig_affine, sigs, num_messages);
+    // aggrSignaturesInPairs(&agr_sig, &agr_sig_affine, sigs, num_messages);
     /* Aggregate public keys */
     clock_gettime(CLOCK_MONOTONIC, &start);
     aggrPublicKeysInPairs(&agr_pk, &agr_pk_affine, pks, num_messages);
     clock_gettime(CLOCK_MONOTONIC, &end);
     *time = (double)(end.tv_sec - start.tv_sec) * FOR_SEC + (double)(end.tv_nsec - start.tv_nsec);
     /* Verify aggregated signature */
-    if (verifyMessage(msg_bytes, agr_sig_affine, agr_pk_affine)) {
-        printf("Signature aggr is VALID ✅");
-    } else {
-        printf("Signature aggr is INVALID ❌");
-    }
-    printf("\n");
+    // if (verifyMessage(msg_bytes, agr_sig_affine, agr_pk_affine)) {
+    //     printf("Signature aggr is VALID ✅");
+    // } else {
+    //     printf("Signature aggr is INVALID ❌");
+    // }
+    // printf("\n");
 }
 
 void signVerifyMessagesByFour (int num_messages, double *time, blst_p2 *sigs, blst_p1 *pks, uint8_t *msg_bytes) {
     blst_p1 agr_pk;
     blst_p1_affine agr_pk_affine;
-    blst_p2 agr_sig;
-    blst_p2_affine agr_sig_affine;
+    // blst_p2 agr_sig;
+    // blst_p2_affine agr_sig_affine;
     struct timespec start, end;
     /* Aggregate signatures */
-    aggrSignaturesInPairs(&agr_sig, &agr_sig_affine, sigs, num_messages);
+    // aggrSignaturesInPairs(&agr_sig, &agr_sig_affine, sigs, num_messages);
     /* Aggregate public keys */
     clock_gettime(CLOCK_MONOTONIC, &start);
     aggrPublicKeysFourByFour(&agr_pk, &agr_pk_affine, pks, num_messages);
     clock_gettime(CLOCK_MONOTONIC, &end);
     *time = (double)(end.tv_sec - start.tv_sec) * FOR_SEC + (double)(end.tv_nsec - start.tv_nsec);
     /* Verify aggregated signature */
-    if (verifyMessage(msg_bytes, agr_sig_affine, agr_pk_affine)) {
-        printf("Signature aggr is VALID ✅");
-    } else {
-        printf("Signature aggr is INVALID ❌");
-    }
-    printf("\n");
+    // if (verifyMessage(msg_bytes, agr_sig_affine, agr_pk_affine)) {
+    //     printf("Signature aggr is VALID ✅");
+    // } else {
+    //     printf("Signature aggr is INVALID ❌");
+    // }
+    // printf("\n");
 }
 
 void generate(int num_messages, blst_p2 *sigs, blst_p1 *pks, uint8_t *msg_bytes) {

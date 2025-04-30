@@ -407,7 +407,6 @@ void blst_four_p1_add(POINTonE1 *out, POINTonE1 *signs, int n) {
 
     int groups = n / 4;
     int rest = n % 4;
-    printf("groups: %d, rest: %d\n", groups, rest);
     int new_n = 4 + rest;
     fourVec384 px[groups], py[groups], pz[groups];
     COPY_FROM_POINT_TO_ARRAY_fp(px, signs, X, groups);
