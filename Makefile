@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -g -mavx2 -O2 -mavx512f -mavx512dq -I libraries/blst-master
+CFLAGS = -g -mavx2 -O2 -mavx512f -mavx512dq -fno-omit-frame-pointer -I libraries/blst-master
 LDFLAGS = -L libraries/blst-master -lblst
 
 SUMMUL = runSumMul.o

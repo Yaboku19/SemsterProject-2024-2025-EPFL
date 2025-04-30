@@ -11,6 +11,14 @@
 #define FOR_SEC 1000000000.0
 #define NUM_MESSAGES 10
 
+#include <linux/perf_event.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+
+void perf_mark(const char *marker) {
+    syscall(SYS_write, 1, marker, strlen(marker));
+}
+
 void generateKeys (blst_scalar *sk, blst_p1 *pk, uint8_t *pk_bytes, blst_p1_affine* pk_affine) {
     uint8_t ikm[32];
     for (int i = 0; i < 32; i++) {
@@ -273,7 +281,10 @@ void signVerifyMessagesByFour (int num_messages, double *time, blst_p2 *sigs, bl
     // aggrSignaturesInPairs(&agr_sig, &agr_sig_affine, sigs, num_messages);
     /* Aggregate public keys */
     clock_gettime(CLOCK_MONOTONIC, &start);
+    perf_mark("PERF_START\n");
+    aggrPublicKeysInPairs(&agr_pk, &agr_pk_affine, pks, num_messages);
     aggrPublicKeysFourByFour(&agr_pk, &agr_pk_affine, pks, num_messages);
+    perf_mark("PERF_END\n");
     clock_gettime(CLOCK_MONOTONIC, &end);
     *time = (double)(end.tv_sec - start.tv_sec) * FOR_SEC + (double)(end.tv_nsec - start.tv_nsec);
     /* Verify aggregated signature */
