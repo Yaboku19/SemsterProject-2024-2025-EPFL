@@ -418,7 +418,7 @@ POINT_ADD_AFFINE_IMPL(POINTonE2, 384x, fp2, BLS12_381_Rx.p2)
 POINT_DOUBLE_IMPL_A0(POINTonE2, 384x, fp2)
 POINT_IS_EQUAL_IMPL(POINTonE2, 384x, fp2)
 
-#define COPY_FROM_POINT_TO_ARRAY(to, from, coordinate, times) ({ \
+#define COPY_FROM_POINT_TO_ARRAY_fp2(to, from, coordinate, times) ({ \
     for(int k = 0; k < times; k++) { \
         for (int j = 0; j < 2; j++ ) { \
             for (int i = 0; i < 6; i++) { \
@@ -435,7 +435,7 @@ POINT_IS_EQUAL_IMPL(POINTonE2, 384x, fp2)
     } \
 })
 
-#define COPY_FROM_ARRAY_TO_POINT(to, from, coordinate) ({ \
+#define COPY_FROM_ARRAY_TO_POINT_fp2(to, from, coordinate) ({ \
     for (int j = 0; j < 2; j++) { \
         for (int i = 0; i < 4; i++) { \
             to[i].coordinate[j][0] = from[j][0][i] | (from[j][1][i] << 32); \
@@ -472,9 +472,9 @@ void blst_four_p2_add(POINTonE2 *out, POINTonE2 *signs, int n) {
     int rest = n % 4;
     int new_n = 4 + rest;
     fourVec384x px[groups], py[groups], pz[groups];
-    COPY_FROM_POINT_TO_ARRAY(px, signs, X, groups);
-    COPY_FROM_POINT_TO_ARRAY(py, signs, Y, groups);
-    COPY_FROM_POINT_TO_ARRAY(pz, signs, Z, groups);
+    COPY_FROM_POINT_TO_ARRAY_fp2(px, signs, X, groups);
+    COPY_FROM_POINT_TO_ARRAY_fp2(py, signs, Y, groups);
+    COPY_FROM_POINT_TO_ARRAY_fp2(pz, signs, Z, groups);
     int k = 0;
     while (groups > 1) {
         for (k = 0; k < groups; k += 2) {
@@ -489,11 +489,11 @@ void blst_four_p2_add(POINTonE2 *out, POINTonE2 *signs, int n) {
         groups /= 2;
     }
     POINTonE2 final[new_n];
-    COPY_FROM_ARRAY_TO_POINT(final, px[0], X);
-    COPY_FROM_ARRAY_TO_POINT(final, py[0], Y);
-    COPY_FROM_ARRAY_TO_POINT(final, pz[0], Z);
-    for (k = new_n - 1; k > new_n - 1 - rest; k--) {
-        memcpy(&final[k], &signs[k], sizeof(POINTonE2));
+    COPY_FROM_ARRAY_TO_POINT_fp2(final, px[0], X);
+    COPY_FROM_ARRAY_TO_POINT_fp2(final, py[0], Y);
+    COPY_FROM_ARRAY_TO_POINT_fp2(final, pz[0], Z);
+    for (k = 0; k < rest; k++) {
+        memcpy(&final[k + 4], &signs[n - k - 1], sizeof(POINTonE1));
     }
     while (new_n > 1) {
         groups = new_n / 2;

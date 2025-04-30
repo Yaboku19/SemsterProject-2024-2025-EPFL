@@ -359,7 +359,7 @@ POINT_ADD_AFFINE_IMPL(POINTonE1, 384, fp, BLS12_381_Rx.p)
 POINT_DOUBLE_IMPL_A0(POINTonE1, 384, fp)
 POINT_IS_EQUAL_IMPL(POINTonE1, 384, fp)
 
-#define COPY_FROM_POINT_TO_ARRAY_fp2(to, from, coordinate, times) ({ \
+#define COPY_FROM_POINT_TO_ARRAY_fp(to, from, coordinate, times) ({ \
     for(int j = 0; j < times; j++) { \
         for (int i = 0; i < 6; i++) { \
             to[j][i * 2][0] = from[0 + (j * 4)].coordinate[i] & 0xFFFFFFFF; \
@@ -374,15 +374,15 @@ POINT_IS_EQUAL_IMPL(POINTonE1, 384, fp)
     } \
 })
 
-#define COPY_FROM_ARRAY_TO_POINT_fp2(to, from, coordinate) ({ \
-for (int i = 0; i < 4; i++) { \
-    to[i].coordinate[0] = from[0][i] | (from[1][i] << 32); \
-    to[i].coordinate[1] = from[2][i] | (from[3][i] << 32); \
-    to[i].coordinate[2] = from[4][i] | (from[5][i] << 32); \
-    to[i].coordinate[3] = from[6][i] | (from[7][i] << 32); \
-    to[i].coordinate[4] = from[8][i] | (from[9][i] << 32); \
-    to[i].coordinate[5] = from[10][i] | (from[11][i] << 32); \
-} \
+#define COPY_FROM_ARRAY_TO_POINT_fp(to, from, coordinate) ({ \
+    for (int i = 0; i < 4; i++) { \
+        to[i].coordinate[0] = from[0][i] | (from[1][i] << 32); \
+        to[i].coordinate[1] = from[2][i] | (from[3][i] << 32); \
+        to[i].coordinate[2] = from[4][i] | (from[5][i] << 32); \
+        to[i].coordinate[3] = from[6][i] | (from[7][i] << 32); \
+        to[i].coordinate[4] = from[8][i] | (from[9][i] << 32); \
+        to[i].coordinate[5] = from[10][i] | (from[11][i] << 32); \
+    } \
 })
 
 void blst_p1_add(POINTonE1 *out, const POINTonE1 *a, const POINTonE1 *b)
@@ -407,11 +407,12 @@ void blst_four_p1_add(POINTonE1 *out, POINTonE1 *signs, int n) {
 
     int groups = n / 4;
     int rest = n % 4;
+    printf("groups: %d, rest: %d\n", groups, rest);
     int new_n = 4 + rest;
     fourVec384 px[groups], py[groups], pz[groups];
-    COPY_FROM_POINT_TO_ARRAY_fp2(px, signs, X, groups);
-    COPY_FROM_POINT_TO_ARRAY_fp2(py, signs, Y, groups);
-    COPY_FROM_POINT_TO_ARRAY_fp2(pz, signs, Z, groups);
+    COPY_FROM_POINT_TO_ARRAY_fp(px, signs, X, groups);
+    COPY_FROM_POINT_TO_ARRAY_fp(py, signs, Y, groups);
+    COPY_FROM_POINT_TO_ARRAY_fp(pz, signs, Z, groups);
     int k = 0;
     while (groups > 1) {
         for (k = 0; k < groups; k += 2) {
@@ -426,11 +427,11 @@ void blst_four_p1_add(POINTonE1 *out, POINTonE1 *signs, int n) {
         groups /= 2;
     }
     POINTonE1 final[new_n];
-    COPY_FROM_ARRAY_TO_POINT_fp2(final, px[0], X);
-    COPY_FROM_ARRAY_TO_POINT_fp2(final, py[0], Y);
-    COPY_FROM_ARRAY_TO_POINT_fp2(final, pz[0], Z);
-    for (k = new_n - 1; k > new_n - 1 - rest; k--) {
-        memcpy(&final[k], &signs[k], sizeof(POINTonE1));
+    COPY_FROM_ARRAY_TO_POINT_fp(final, px[0], X);
+    COPY_FROM_ARRAY_TO_POINT_fp(final, py[0], Y);
+    COPY_FROM_ARRAY_TO_POINT_fp(final, pz[0], Z);
+    for (k = 0; k < rest; k++) {
+        memcpy(&final[k + 4], &signs[n - k - 1], sizeof(POINTonE1));
     }
     while (new_n > 1) {
         groups = new_n / 2;
@@ -439,10 +440,9 @@ void blst_four_p1_add(POINTonE1 *out, POINTonE1 *signs, int n) {
         }
         if (groups * 2 < new_n) {
             final[groups] = final[groups * 2];
-            new_n = groups + 1;
-        } else {
-            new_n = groups;
+            groups++;
         }
+        new_n = groups;
     }
     *out = final[0];
 }
