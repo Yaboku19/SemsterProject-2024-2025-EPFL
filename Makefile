@@ -8,11 +8,13 @@ SIGNVERIFY = signVerify.o
 SIGNVERIFY_SRC = signVerify.c
 MULMONT_SRC = mult_mont.c
 MULMONT = mult_mont.o
+PROFILING_SRC = profiling.c
+PROFILING = profiling.o
 TEST = test.o
 SRC = implementation/print.c implementation/generation.c implementation/sum.c implementation/multiplication.c implementation/modulo.c
 HEADERS = header/struct.h header/print.h header/generation.h header/sum.h header/multiplication.h header/modulo.h
 
-all: runSumMul signVerify mulmont
+all: runSumMul signVerify mulmont profiling
 
 runSumMul: $(SRC) $(HEADERS)
 	$(CC) $(CFLAGS) -o $(SUMMUL) $(SUMMUL_SRC) $(SRC) $(LDFLAGS)
@@ -22,6 +24,9 @@ signVerify: $(SRC) $(HEADERS)
 
 mulmont: $(SRC) $(HEADERS)
 	$(CC) $(CFLAGS) -o $(MULMONT) $(MULMONT_SRC) $(SRC) $(LDFLAGS)
+
+profiling: $(SRC) $(HEADERS)
+	$(CC) $(CFLAGS) -o $(PROFILING) $(PROFILING_SRC) $(SRC) $(LDFLAGS)
 
 clean:
 	rm -f $(SUMMUL) $(SIGNVERIFY) $(MULMONT)
